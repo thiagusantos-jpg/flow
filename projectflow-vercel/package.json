@@ -1,0 +1,13 @@
+{
+  "name": "projectflow-vercel",
+  "version": "1.0.0",
+  "description": "ProjectFlow - Gestão de Projetos no Vercel",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'Static site - no build needed'"
+  },
+  "devDependencies": {
+    "vercel": "^latest"
+  }
+}
