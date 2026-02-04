@@ -1,0 +1,20 @@
+{
+  "name": "projectflow-netlify",
+  "version": "1.0.0",
+  "description": "ProjectFlow - Gestão de Projetos com Netlify Backend",
+  "private": true,
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'No build step needed'",
+    "deploy": "netlify deploy --prod"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^7.0.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
