@@ -4,31 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ProjectFlow - Gestão de Projetos</title>
-  
+
   <!-- React & ReactDOM -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  
+
   <!-- Babel Standalone para JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
+
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  
+
   <style>
     * {
       font-family: 'Outfit', sans-serif;
     }
-    
+
     .font-mono {
       font-family: 'Space Mono', monospace;
     }
-    
+
     @keyframes slideIn {
       from {
         opacity: 0;
@@ -39,12 +39,12 @@
         transform: translateY(0);
       }
     }
-    
+
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
     }
-    
+
     @keyframes scaleIn {
       from {
         opacity: 0;
@@ -55,62 +55,111 @@
         transform: scale(1);
       }
     }
-    
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+      50% { box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.2); }
+    }
+
     .animate-slide-in {
       animation: slideIn 0.6s ease-out;
     }
-    
+
     .animate-fade-in {
       animation: fadeIn 0.4s ease-out;
     }
-    
+
     .animate-scale-in {
       animation: scaleIn 0.3s ease-out;
     }
-    
+
     .gantt-bar {
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    
+
     .gantt-bar:hover {
       transform: translateY(-2px);
       filter: brightness(1.2);
     }
-    
+
     .project-card {
       transition: all 0.3s ease;
     }
-    
+
     .project-card:hover {
       transform: translateX(4px);
     }
-    
+
     .glass {
       background: rgba(255, 255, 255, 0.05);
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
-    
+
     .task-row {
       transition: background 0.2s ease;
     }
-    
+
     .task-row:hover {
       background: rgba(255, 255, 255, 0.03);
     }
-    
+
     .line-clamp-1 {
       display: -webkit-box;
       -webkit-line-clamp: 1;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
-    
+
     .line-clamp-2 {
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
+    }
+
+    .overdue-pulse {
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255,255,255,0.05);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.15);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255,255,255,0.25);
+    }
+
+    /* Mobile sidebar toggle */
+    @media (max-width: 1023px) {
+      .sidebar-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 40;
+      }
+      .sidebar-panel {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 300px;
+        z-index: 50;
+        overflow-y: auto;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+      }
+      .sidebar-panel.open {
+        transform: translateX(0);
+      }
     }
   </style>
 </head>
@@ -118,7 +167,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
     // Ícones Lucide (inline SVG components)
     const Plus = ({ className, ...props }) => (
@@ -169,6 +218,52 @@
       </svg>
     );
 
+    const Search = ({ className, ...props }) => (
+      <svg className={className} {...props} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+    );
+
+    const Download = ({ className, ...props }) => (
+      <svg className={className} {...props} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+    );
+
+    const Upload = ({ className, ...props }) => (
+      <svg className={className} {...props} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="17 8 12 3 7 8"></polyline>
+        <line x1="12" y1="3" x2="12" y2="15"></line>
+      </svg>
+    );
+
+    const Menu = ({ className, ...props }) => (
+      <svg className={className} {...props} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+    );
+
+    const AlertTriangle = ({ className, ...props }) => (
+      <svg className={className} {...props} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+    );
+
+    const X = ({ className, ...props }) => (
+      <svg className={className} {...props} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    );
+
     // Utility functions
     const getDatePosition = (date, startDate, totalDays) => {
       const diff = Math.floor((new Date(date) - new Date(startDate)) / (1000 * 60 * 60 * 24));
@@ -181,18 +276,54 @@
 
     const getDateRange = (project) => {
       if (!project || project.tasks.length === 0) return null;
-      
+
       const dates = project.tasks.flatMap(t => [new Date(t.start), new Date(t.end)]);
       const minDate = new Date(Math.min(...dates));
       const maxDate = new Date(Math.max(...dates));
-      
+
       minDate.setDate(minDate.getDate() - 2);
       maxDate.setDate(maxDate.getDate() + 7);
-      
+
       const totalDays = Math.floor((maxDate - minDate) / (1000 * 60 * 60 * 24));
-      
+
       return { minDate, maxDate, totalDays };
     };
+
+    const isOverdue = (task) => {
+      if (task.status === 'completed') return false;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return new Date(task.end) < today;
+    };
+
+    const isDueSoon = (task) => {
+      if (task.status === 'completed') return false;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const end = new Date(task.end);
+      const diffDays = Math.floor((end - today) / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= 2;
+    };
+
+    // Toast notification component
+    function Toast({ message, type, onClose }) {
+      useEffect(() => {
+        const timer = setTimeout(onClose, 3000);
+        return () => clearTimeout(timer);
+      }, [onClose]);
+
+      const colors = {
+        success: 'bg-emerald-500/90 border-emerald-400',
+        error: 'bg-red-500/90 border-red-400',
+        info: 'bg-cyan-500/90 border-cyan-400',
+      };
+
+      return (
+        <div className={`fixed bottom-6 right-6 z-[100] px-5 py-3 rounded-xl border text-white text-sm font-medium shadow-2xl animate-scale-in ${colors[type] || colors.info}`}>
+          {message}
+        </div>
+      );
+    }
 
     // Main App Component
     function ProjectManager() {
@@ -202,79 +333,131 @@
       const [showNewProject, setShowNewProject] = useState(false);
       const [showNewTask, setShowNewTask] = useState(false);
       const [editingTask, setEditingTask] = useState(null);
+      const [searchQuery, setSearchQuery] = useState('');
+      const [statusFilter, setStatusFilter] = useState('all');
+      const [sidebarOpen, setSidebarOpen] = useState(false);
+      const [toast, setToast] = useState(null);
+      const fileInputRef = useRef(null);
+
+      const showToast = useCallback((message, type = 'info') => {
+        setToast({ message, type });
+      }, []);
+
+      // Keyboard shortcuts
+      useEffect(() => {
+        const handler = (e) => {
+          if (e.key === 'Escape') {
+            if (editingTask) { setEditingTask(null); return; }
+            if (showNewTask) { setShowNewTask(false); return; }
+            if (showNewProject) { setShowNewProject(false); return; }
+            if (sidebarOpen) { setSidebarOpen(false); return; }
+          }
+          // Ctrl+N = new task (when a project is selected)
+          if ((e.ctrlKey || e.metaKey) && e.key === 'n' && selectedProject && !showNewTask && !editingTask) {
+            e.preventDefault();
+            setShowNewTask(true);
+          }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+      }, [editingTask, showNewTask, showNewProject, selectedProject, sidebarOpen]);
 
       // Load from localStorage
       useEffect(() => {
         const saved = localStorage.getItem('projectflow-projects');
         if (saved) {
-          const parsed = JSON.parse(saved);
-          setProjects(parsed);
-          if (parsed.length > 0) setSelectedProject(parsed[0].id);
-        } else {
-          // Demo project
-          const demo = {
-            id: Date.now(),
-            name: 'Evento Abbott LAC 2026',
-            color: '#FF6B35',
-            tasks: [
-              {
-                id: 1,
-                name: 'Concept & Briefing',
-                description: 'Reunião inicial com cliente para entender objetivos do evento, público-alvo e definir o conceito criativo FLOWGETHER',
-                start: '2026-02-05',
-                end: '2026-02-12',
-                status: 'completed',
-                progress: 100,
-                assignee: 'Thiago'
-              },
-              {
-                id: 2,
-                name: 'Design Key Visual',
-                description: 'Criação da identidade visual principal do evento, incluindo logo, paleta de cores e elementos gráficos do tema',
-                start: '2026-02-13',
-                end: '2026-02-25',
-                status: 'in-progress',
-                progress: 65,
-                assignee: 'Thiago',
-                dependencies: [1]
-              },
-              {
-                id: 3,
-                name: 'Aprovação Cliente',
-                description: 'Apresentação do conceito final e key visual para aprovação do cliente e ajustes necessários',
-                start: '2026-02-26',
-                end: '2026-03-02',
-                status: 'pending',
-                progress: 0,
-                assignee: 'Cliente',
-                dependencies: [2]
-              },
-              {
-                id: 4,
-                name: 'Produção Stand 3D',
-                description: 'Modelagem 3D do stand corporativo, renders finais e especificações técnicas para produção',
-                start: '2026-03-03',
-                end: '2026-03-20',
-                status: 'pending',
-                progress: 0,
-                assignee: 'Equipe 3D',
-                dependencies: [3]
-              }
-            ]
-          };
-          setProjects([demo]);
-          setSelectedProject(demo.id);
+          try {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setProjects(parsed);
+              setSelectedProject(parsed[0].id);
+              return;
+            }
+          } catch (e) {
+            // corrupted data, fall through to demo
+          }
         }
+        // Demo project
+        const demo = {
+          id: Date.now(),
+          name: 'Evento Abbott LAC 2026',
+          color: '#FF6B35',
+          tasks: [
+            {
+              id: 1,
+              name: 'Concept & Briefing',
+              description: 'Reunião inicial com cliente para entender objetivos do evento, público-alvo e definir o conceito criativo FLOWGETHER',
+              start: '2026-02-05',
+              end: '2026-02-12',
+              status: 'completed',
+              progress: 100,
+              assignee: 'Thiago'
+            },
+            {
+              id: 2,
+              name: 'Design Key Visual',
+              description: 'Criação da identidade visual principal do evento, incluindo logo, paleta de cores e elementos gráficos do tema',
+              start: '2026-02-13',
+              end: '2026-02-25',
+              status: 'in-progress',
+              progress: 65,
+              assignee: 'Thiago',
+              dependencies: [1]
+            },
+            {
+              id: 3,
+              name: 'Aprovação Cliente',
+              description: 'Apresentação do conceito final e key visual para aprovação do cliente e ajustes necessários',
+              start: '2026-02-26',
+              end: '2026-03-02',
+              status: 'pending',
+              progress: 0,
+              assignee: 'Cliente',
+              dependencies: [2]
+            },
+            {
+              id: 4,
+              name: 'Produção Stand 3D',
+              description: 'Modelagem 3D do stand corporativo, renders finais e especificações técnicas para produção',
+              start: '2026-03-03',
+              end: '2026-03-20',
+              status: 'pending',
+              progress: 0,
+              assignee: 'Equipe 3D',
+              dependencies: [3]
+            }
+          ]
+        };
+        setProjects([demo]);
+        setSelectedProject(demo.id);
       }, []);
 
       // Save to localStorage
       useEffect(() => {
-        if (projects.length > 0) {
-          localStorage.setItem('projectflow-projects', JSON.stringify(projects));
-        }
+        localStorage.setItem('projectflow-projects', JSON.stringify(projects));
       }, [projects]);
 
       const currentProject = projects.find(p => p.id === selectedProject);
+
+      // Filtered tasks
+      const filteredTasks = useMemo(() => {
+        if (!currentProject) return [];
+        return currentProject.tasks.filter(task => {
+          const matchesSearch = !searchQuery ||
+            task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (task.assignee && task.assignee.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
+          const matchesStatus = statusFilter === 'all' || task.status === statusFilter ||
+            (statusFilter === 'overdue' && isOverdue(task));
+          return matchesSearch && matchesStatus;
+        });
+      }, [currentProject, searchQuery, statusFilter]);
+
+      // Project with filtered tasks for views
+      const filteredProject = useMemo(() => {
+        if (!currentProject) return null;
+        return { ...currentProject, tasks: filteredTasks };
+      }, [currentProject, filteredTasks]);
 
       const addProject = (name, color) => {
         const newProject = {
@@ -283,32 +466,38 @@
           color,
           tasks: []
         };
-        setProjects([...projects, newProject]);
+        setProjects(prev => [...prev, newProject]);
         setSelectedProject(newProject.id);
         setShowNewProject(false);
+        showToast(`Projeto "${name}" criado`, 'success');
       };
 
       const deleteProject = (id) => {
-        setProjects(projects.filter(p => p.id !== id));
-        if (selectedProject === id) {
-          setSelectedProject(projects[0]?.id || null);
-        }
+        setProjects(prev => {
+          const updated = prev.filter(p => p.id !== id);
+          if (selectedProject === id) {
+            setSelectedProject(updated.length > 0 ? updated[0].id : null);
+          }
+          return updated;
+        });
+        showToast('Projeto deletado', 'info');
       };
 
       const addTask = (taskData) => {
         const newTask = {
           id: Date.now(),
-          ...taskData,
           progress: 0,
-          status: 'pending'
+          status: 'pending',
+          ...taskData,
         };
-        
-        setProjects(projects.map(p => 
-          p.id === selectedProject 
+
+        setProjects(projects.map(p =>
+          p.id === selectedProject
             ? { ...p, tasks: [...p.tasks, newTask] }
             : p
         ));
         setShowNewTask(false);
+        showToast(`Tarefa "${taskData.name}" criada`, 'success');
       };
 
       const updateTask = (taskId, updates) => {
@@ -330,16 +519,73 @@
             ? { ...p, tasks: p.tasks.filter(t => t.id !== taskId) }
             : p
         ));
+        showToast('Tarefa removida', 'info');
       };
+
+      // Export projects as JSON
+      const exportData = () => {
+        const data = JSON.stringify(projects, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `projectflow-backup-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Backup exportado com sucesso', 'success');
+      };
+
+      // Import projects from JSON
+      const importData = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const parsed = JSON.parse(ev.target.result);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setProjects(parsed);
+              setSelectedProject(parsed[0].id);
+              showToast(`${parsed.length} projeto(s) importado(s)`, 'success');
+            } else {
+              showToast('Arquivo inválido', 'error');
+            }
+          } catch {
+            showToast('Erro ao ler arquivo JSON', 'error');
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      };
+
+      // Stats for current project
+      const projectStats = useMemo(() => {
+        if (!currentProject || currentProject.tasks.length === 0) return null;
+        const tasks = currentProject.tasks;
+        const total = tasks.length;
+        const completed = tasks.filter(t => t.status === 'completed').length;
+        const inProgress = tasks.filter(t => t.status === 'in-progress').length;
+        const pending = tasks.filter(t => t.status === 'pending').length;
+        const overdue = tasks.filter(t => isOverdue(t)).length;
+        const avgProgress = Math.round(tasks.reduce((a, t) => a + t.progress, 0) / total);
+        return { total, completed, inProgress, pending, overdue, avgProgress };
+      }, [currentProject]);
 
       return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans">
           {/* Header */}
-          <header className="glass border-b border-white/10 sticky top-0 z-50">
-            <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <svg width="100" height="40" viewBox="0 0 500 200" className="opacity-90 hover:opacity-100 transition">
-                  <path fill="#ffd217" d="M289.66,58.65c.61-2.9.6-5.92.38-8.54-.18-2.64-.64-4.91-.72-6.59-2.11-9.36-7.4-17.05-14.05-22.34.1,0,.63.35,1.31.93.33.3.71.65,1.12,1.01.2.19.41.38.61.57.2.2.39.41.59.62.4.41.79.82,1.15,1.2.34.4.66.76.93,1.07.54.61.9.97.9.85-2.59-3.16-5.04-5.27-7.57-7.2-.65-.46-1.3-.92-1.96-1.39-.66-.46-1.37-.88-2.07-1.34-1.43-.89-3-1.79-4.81-2.65-.93-.45-.65-.36-.05-.12.59.26,1.51.64,1.82.8-7.25-3.65-14.81-5.34-21.98-5.43.65.1-.66.16-2.22.24-1.54.09-3.32.29-3.74.37.96-.24-.73-.16-2.25-.06-1.58.1-2.99.21-1.13-.23-.92.11-2.07.32-1.85.39-1.37.15-1.81.15-.44-.13-2.51.37-3.3.6-4.03.79-.73.18-1.41.35-3.63.9,0-.07.89-.31,1.34-.49-2.23.66-4.45,1.4-8.06,2.77.2-.12-.24,0,.84-.43-3.12,1.17-5.6,2.59-8.1,4.06-.61.4-1.22.8-1.85,1.2-.31.2-.63.4-.95.62-.31.22-.62.45-.94.68-.64.46-1.29.92-1.97,1.41-.65.52-1.33,1.06-2.04,1.63.74-.79.25-.42-.49.16-.18.14-.38.3-.58.46-.19.17-.38.33-.55.48-.35.29-.64.52-.75.54l-1.41,1.37c-.48.45-.9.95-1.35,1.43l1.18-1.05c-2.43,2.43-4.23,4.88-6.09,7.15.48-.7,1-1.37,1.5-2.06-.66.84-1.34,1.67-1.96,2.54-.63.86-1.27,1.72-1.86,2.61.7-.99,1.47-1.93,2.21-2.88-.98,1.43-.86,1.4-.84,1.46.02.07-.09.21-1.4,2.06.25-.38-.24.31-.92,1.29-.66.99-1.53,2.25-2.06,2.97h0c-.41.73-.82,1.48-1.3,2.31-.47.83-1,1.76-1.66,2.83-.4.53.03-.59-.23-.25-.64,1.49-3.6,6.65-4.46,8.79.16-.44.07-.49-.04-.32l-.49,1.32c-.77,1.38-.88,1.58-.86,1.3-2.15,4.24.94-1.21-1.67,3.78.18-.4.07-.22.45-1.06-2.56,5.05-4.64,9.9-6.91,14.57-.87,1.28,1.86-4.14.93-2.64-3.15,6.81-6.16,14.24-9.46,20.69l.62-1.2c-.13,1.06-2.55,4.75-4.15,8.04.41-.8.39-1.12.31-.89-2.42,4.32-4.79,8.93-8.96,15.17l.45-.82c-1.7,2.37-4.55,6.18-6.68,8.49-.54.77-1.77,2.08-.94,1.36-3.49,3.37-6.92,6.47-10.68,8.89-.96.57-1.89,1.19-2.89,1.65-.49.24-.98.51-1.48.73-.51.2-1.01.41-1.52.61-.5.22-1.02.38-1.54.52-.52.15-1.04.3-1.56.44l-1.59.29-.79.13c-.27.03-.53.04-.8.06.25-.03.53-.06.79-.11.26-.06.49-.12.68-.17.37-.1.51-.15.11-.06l-.88.19-.9.11c-.6.07-1.2.17-1.8.21-1.21.03-2.42.12-3.63,0,.57.17.94.21,2.48.27-.46.05-1.21.14-2.07.08-.43-.02-.89-.04-1.36-.05-.47-.01-.93-.11-1.38-.16.82.1,1.23.13,1.36.09.13-.02-.02-.06-.31-.11-.58-.15-1.75-.36-2.43-.53.22.1-.26.04-.15.12-1.83-.56-2-.51-2.34-.54-.17,0-.39-.03-.87-.16-.24-.06-.55-.16-.95-.29-.39-.16-.87-.37-1.46-.64l.29.03c-.93-.32-1.75-.77-2.62-1.18-.43-.22-.83-.49-1.26-.74-.21-.13-.42-.27-.64-.4-.21-.14-.41-.31-.62-.47-.29-.34.13-.03.65.34.55.33,1.21.74,1.3.71-2.5-1.51-4.89-3.27-6.41-5.51.38.5.91,1.06,1.44,1.61.5.58,1.11,1.05,1.58,1.47-.49-.54-.91-.92-1.2-1.29-.3-.37-.55-.66-.78-.92-.12-.13-.23-.26-.35-.39-.11-.14-.21-.28-.33-.43-.2-.27-.43-.57-.7-.93-.17-.25-.33-.51-.49-.76-.1-.17-.2-.34-.3-.51-.23-.38-.46-.75-.65-1.16.23.53.52.94.73,1.31.05.08.09.16.14.23-.24-.4-.48-.79-.72-1.19l-.55-1.11-.28-.55-.23-.57c.07.2.14.4.22.59l.27.57-.39-.58-.32-.62c-.21-.42-.42-.84-.61-1.28-.32-.9-.68-1.82-.88-2.82-.27-.99-.41-2.04-.6-3.14-.1-1.11-.26-2.28-.3-3.54.04.61.06,1.08.1,1.43.06.35.09.59.12.74.06.3.07.26.07.08,0-.36-.04-1.27.08-1.09.03-.63.06-1.42.09-1.99.07-.57.13-.9.14-.63,0-.58.03-1.12.08-1.64.09-.52.17-1.03.26-1.57.07-.54.23-1.1.36-1.73.06-.32.13-.65.2-1.01.08-.35.17-.73.27-1.13.05-.06.24-.66.41-1.17.2-.5.39-.92.38-.64,1.04-2.84-.36.63-.35.37.68-2.25,1.93-4.75,3.58-7.27,1.66-2.52,3.72-5.07,6.04-7.55,1.01-1.05,1.88-1.84,2.59-2.55.76-.67,1.4-1.24,2.03-1.8.3-.26.7-.58.85-1.03.18-.43.2-.94.02-1.41-.17-.49-.61-.81-1-1.21-.1-.1-.21-.21-.32-.31-.38-.39-.81-.82-1.28-1.28-.23-.28.04-.09.42.23.46.4,1.08.98,1.08.98-2.03-2.2-3.71-3.7-5.92-5.46.48.32.05-.09-.56-.69-.87-.72-1.23-.88-1.62-1.14-.4-.25-.84-.58-2.03-1.49.46.24,1.06.53,1.97,1.15-2.15-1.58-4.38-3.01-6.75-4.41-.56-.48,1.52.72,2.35,1.23-2.59-1.72-6.92-4.12-7.88-4.35.44.25.89.5,1.33.75-.36-.24.11-.12.71.19,2.39,1.18,3.27,2,3.36,2.14-.57-.33-1.12-.68-1.7-.99.39.32,1,.76,1.75,1.25.38.24.79.49,1.22.76.43.28.88.57,1.34.87,1.87,1.18,3.89,2.58,5.43,3.82-.38-.22-.76-.42-1.14-.62-6.31-4.91-15.38-10.52-26.69-13.59-.14-.04-.28-.06-.42-.09.21-.06.54-.08.63-.16.24.09.6.21,1.11.35l1.12.11-2.32-.63s0,0-.01,0c-.15-.1-.46-.24-1.02-.39-.7-.18-1.83-.39-3.51-.18-1.54.31-2.99.96-4.22,1.89-.44.24-.86.52-1.24.78.45-.39.99-.81,1.54-1.16.56-.35,1.15-.64,1.76-.88-1.07.34-1.87.83-2.53,1.35-.65.53-1.11,1.01-1.67,1.53-.32.17-.82.54-1.49,1.09-1,1.04-1.98,2.1-2.93,3.18-.45.29,1.2-1.54-.89.47-1.3,1.55,1.53-1.21-.71,1.27-1.53,1.44-1.2.92-2.74,2.84-.23.18-.08-.1.33-.61-.65.79-1.42,1.75-2.14,2.64-.79,1.06-1.51,2-1.77,2.51-1.47,1.64-4.12,6.15-4.21,5.85-.15.32-.59,1.18-1.12,2.18-.49,1.03-1.05,2.19-1.52,3.09.71-1.71-.22-.06-1.14,1.98-.23.51-.49,1.03-.71,1.53-.21.5-.41.98-.58,1.38-.35.79-.59,1.25-.58.99-.2.66-.47,1.58-.79,2.67-.17.54-.36,1.12-.55,1.73-.19.61-.34,1.26-.52,1.92-.77,2.63-1.36,5.54-1.74,7.93.03-.27.07-.8.17-1.21-.54,2.66-.76,3.42-1.08,5.14.11.19,0,1.33-.09,2.72-.11,1.38-.2,3-.22,4.14-.23,1.65-.28,1.14-.3.35-.03-.79.02-1.87-.16-1.36.1-.07.03,1.37,0,2.7-.04,1.33-.01,2.53.09,1.97-.24,2.54-.11,2.19-.35,3.5.34.44.08,2.38.41,4.48.05,1.84.01,2.09-.01,2.37-.02.29,0,.62.29,2.63.08.96-.04.56-.16-.1-.12-.65-.26-1.55-.26-1.55.23,2.06.37,2.53.47,2.6.09.07.13-.27.27.15.39,2.43.52,2.99.46,3.17-.04.17-.18-.05-.08.79.7,3.02,1.58,5.23,2.27,7.42,0,.18.15.6-.07.12.32.75.67,1.7,1.09,2.74.43,1.03.88,2.18,1.41,3.3.5,1.14,1.09,2.25,1.64,3.3.58,1.03,1.15,1.99,1.68,2.77.13.25.19.38.21.45-.22-.59-.16-.73-.02-.67.48.78.97,1.49,1.35,2.08.41.58.73,1.05.85,1.38-.63-.94-.74-.98-1.07-1.39.37.53.76,1.04,1.13,1.57.79,1.57-1.56-2.13-1.66-2.07,2.05,3.18,4.91,6.53,6.79,8.71.13.29-1.04-.93-1.84-1.93-.82-.99-1.38-1.66-.25-.1-.94-1.16-1.79-2.39-2.65-3.61.87,1.48.48.93.05.35-.42-.58-.84-1.2-.09.2.87,1.2,1.55,2.13,2.19,2.89.63.77,1.15,1.41,1.72,2.01,1.11,1.23,2.23,2.44,4.32,4.52,1.04.83-.19-.44.85.39,3.11,2.78,4.37,3.83,5.36,4.81.49.5.97.88,1.63,1.39.33.25.72.52,1.18.84.23.15.49.32.76.5.29.16.6.33.94.52.72.35,1.25.54,2.06.94.81.4,1.94.92,3.86,1.98-.49-.13-.96-.3-1.45-.45,1.26.69,2.13,1,2.75,1.25.62.24,1.02.37,1.43.51.4.14.82.27,1.48.49.67.22,1.56.6,2.96,1.11-1.05-.22-4.25-1.47-3.45-1.12,1.79.77,2.44.98,3,1.11.57.11,1.04.16,2.46.6l.53.4c5.88,1.63,12.6,2.38,19.31,2.39-.37.08-1.53.12.05.21,4.25-.01,8.77-.37,13.22-1,4.45-.63,8.81-1.56,12.76-2.64l2.93-1.12c.69-.21,1.3-.36.57-.05,3.03-1,.12-.17,1.53-.76,1.7-.62,2.3-.7,1.23-.26,2.6-1.07,6.29-2.63,9.87-4.52,3.59-1.86,7.11-3.91,9.62-5.49l-.94.68c1.98-1.2,2.95-2.08,3.94-2.87.49-.39.95-.81,1.52-1.27.56-.47,1.24-.96,2.09-1.6-.2.19-.4.37-.62.54.98-.77,1.94-1.61,2.92-2.42.94-.87,1.89-1.73,2.81-2.63l1.34-1.38c.45-.45.89-.91,1.3-1.41.83-.97,1.65-1.93,2.45-2.87l.6-.71c.19-.24.37-.49.55-.74.36-.49.73-.98,1.08-1.46.71-.96,1.43-1.88,2.08-2.81,1.24-1.89,2.47-3.62,3.52-5.22.24-.7,1.51-2.82,2.71-4.86,1.12-2.09,2.18-4.09,2.15-4.47.72-1.23,1.15-2.09,1.53-2.77.37-.68.65-1.19.96-1.77.3-.58.64-1.22,1.14-2.17.45-.96,1.05-2.23,1.91-4.04.91-1.94,1.06-3.02,2.05-5.47l.21.02c.39-1.13.81-2.26,1.18-3.4l.93-1.68.87-2.32c-.38.91-.86,1.92-.86,1.76.34-.91.73-1.91,1.14-2.89.39-.99.79-1.98,1.16-2.85.73-1.74,1.32-3.03,1.38-3.06l3.02-8.65c0,.15-.24.92-.51,1.75.98-2.95.28-.08,1.52-3.96-.25.55,0-.35,0-.46.72-1.67,2-5.15,3.14-8.3.82.4,1.65.8,2.47,1.18,2.71,1.24,3.57,1.37,4.58,1.63.51.13,1.05.29,1.9.59.85.3,2.04.67,3.79,1.34l-2.09-.46c5.72,1.8,11.72,3.23,17.8,3.85,3.04.23,6.09.47,9.11.36,3.02-.07,6.01-.41,8.9-.93-.69.15-.69.26-1.83.39,1.25-.07,3.52-.46,5.47-.93,1.94-.48,3.55-1.01,3.55-1.09,1.76-.52.44-.01,1.54-.27,1.2-.35,2.68-.9,3.97-1.49,1.32-.55,2.44-1.16,3.09-1.35.14-.05-.17.11-.52.29.33-.16.73-.34,1.15-.56.68-.36,1.44-.73,2.1-1.1,1.3-.75,2.25-1.32,1.52-1.01,3.86-2.2,6.92-4.92,9.49-7.34.37-.44.87-1.03,1.43-1.64.56-.61,1.12-1.32,1.68-1.96.53-.67,1-1.32,1.37-1.84.35-.53.57-.95.61-1.14.02.11.31-.24.76-.85.4-.64,1-1.54,1.53-2.59,1.14-2.06,2.04-4.66,2.43-6-.19.93.8-2.32.6-1.22.91-3.1,1.21-6.05,1-5.51ZM230.24,68.26c-3.36-.96,2.05.44-.41-.36-3.98-.96-6.97-2.32-9.7-3.71-2.1-1.11-4.05-2.27-6.1-3.65.91-1.66,2.13-3.74,2.68-4.96l.15-.13c1.9-3.25,3.43-5.51,4.98-7.52,1.56-2,3.13-3.79,5.44-5.7-.04-.24,1.84-1.65,3.36-2.62,1.96-1.02,4.19-1.78,6.61-2,2.41-.22,4.96.06,7.53.75.9.26,1.42.4,1.72.47.29.09.36.1.38.08.03-.03-.18-.17.62.1.05.07.4.22.84.46.43.25.97.52,1.4.78.85.56,1.37.91.18.25,2.71,1.63,4.14,3.12,5.43,4.91.31.46.64.92.91,1.46.32.51.55,1.1.84,1.73.49,1.28.95,2.85,1.04,4.84.07-.87-.07-1.85.06-1.35.23,1.46-.04,3.32-.11,3.1.01-.13,0-.26,0-.38-.07,2.24-.87,4.62-2.24,6.67-1.42,2.03-3.38,3.73-5.59,4.85-2.2,1.15-4.57,1.82-6.79,2.22-2.23.42-4.35.47-6.17.59l.41-.02c-2.49.08-5-.29-7.47-.86ZM129.03,135.21c.29-.19.92-.55,2.08-1.14.11,0,.22.01.16.1-.8.42-1.6.81-2.42,1.17.03-.03.08-.07.18-.12ZM101.64,88.31c-.22.26-.52.61-.91,1.12-.3.27-.61.54-.91.81.72-.86,1.48-1.71,2.29-2.55-.01.02-.02.05-.05.09-.07.11-.2.27-.41.53ZM102.25,74.17c.35.36.61.68.47.64-.87-.75-1.82-1.55-2.84-2.36.8.56,1.59,1.14,2.37,1.72ZM100.21,189.62c-.54.01-1.03,0-1.43-.02.35.01.81.03,1.43.02h0ZM98.23,189.58c.11,0,.24,0,.38,0-.14,0-.27,0-.38,0ZM104.78,189.49c-.29-.05.02-.13.83-.18-.22.03.15.03.72.02.29,0,.62-.01.96-.02.34-.02.68-.04.98-.06-.98.11-2.2.15-3.49.24Z"/>
+          <header className="glass border-b border-white/10 sticky top-0 z-30">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                {/* Mobile menu button */}
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+                <svg width="80" height="32" viewBox="0 0 500 200" className="opacity-90 hover:opacity-100 transition hidden sm:block">
+                  <path fill="#ffd217" d="M289.66,58.65c.61-2.9.6-5.92.38-8.54-.18-2.64-.64-4.91-.72-6.59-2.11-9.36-7.4-17.05-14.05-22.34.1,0,.63.35,1.31.93.33.3.71.65,1.12,1.01.2.19.41.38.61.57.2.2.39.41.59.62.4.41.79.82,1.15,1.2.34.4.66.76.93,1.07.54.61.9.97.9.85-2.59-3.16-5.04-5.27-7.57-7.2-.65-.46-1.3-.92-1.96-1.39-.66-.46-1.37-.88-2.07-1.34-1.43-.89-3-1.79-4.81-2.65-.93-.45-.65-.36-.05-.12.59.26,1.51.64,1.82.8-7.25-3.65-14.81-5.34-21.98-5.43.65.1-.66.16-2.22.24-1.54.09-3.32.29-3.74.37.96-.24-.73-.16-2.25-.06-1.58.1-2.99.21-1.13-.23-.92.11-2.07.32-1.85.39-1.37.15-1.81.15-.44-.13-2.51.37-3.3.6-4.03.79-.73.18-1.41.35-3.63.9,0-.07.89-.31,1.34-.49-2.23.66-4.45,1.4-8.06,2.77.2-.12-.24,0,.84-.43-3.12,1.17-5.6,2.59-8.1,4.06-.61.4-1.22.8-1.85,1.2-.31.2-.63.4-.95.62-.31.22-.62.45-.94.68-.64.46-1.29.92-1.97,1.41-.65.52-1.33,1.06-2.04,1.63.74-.79.25-.42-.49.16-.18.14-.38.3-.58.46-.19.17-.38.33-.55.48-.35.29-.64.52-.75.54l-1.41,1.37c-.48.45-.9.95-1.35,1.43l1.18-1.05c-2.43,2.43-4.23,4.88-6.09,7.15.48-.7,1-1.37,1.5-2.06-.66.84-1.34,1.67-1.96,2.54-.63.86-1.27,1.72-1.86,2.61.7-.99,1.47-1.93,2.21-2.88-.98,1.43-.86,1.4-.84,1.46.02.07-.09.21-1.4,2.06.25-.38-.24.31-.92,1.29-.66.99-1.53,2.25-2.06,2.97h0c-.41.73-.82,1.48-1.3,2.31-.47.83-1,1.76-1.66,2.83-.4.53.03-.59-.23-.25-.64,1.49-3.6,6.65-4.46,8.79.16-.44.07-.49-.04-.32l-.49,1.32c-.77,1.38-.88,1.58-.86,1.3-2.15,4.24.94-1.21-1.67,3.78.18-.4.07-.22.45-1.06-2.56,5.05-4.64,9.9-6.91,14.57-.87,1.28,1.86-4.14.93-2.64-3.15,6.81-6.16,14.24-9.46,20.69l.62-1.2c-.13,1.06-2.55,4.75-4.15,8.04.41-.8.39-1.12.31-.89-2.42,4.32-4.79,8.93-8.96,15.17l.45-.82c-1.7,2.37-4.55,6.18-6.68,8.49-.54.77-1.77,2.08-.94,1.36-3.49,3.37-6.92,6.47-10.68,8.89-.96.57-1.89,1.19-2.89,1.65-.49.24-.98.51-1.48.73-.51.2-1.01.41-1.52.61-.5.22-1.02.38-1.54.52-.52.15-1.04.3-1.56.44l-1.59.29-.79.13c-.27.03-.53.04-.80.06.25-.03.53-.06.79-.11.26-.06.49-.12.68-.17.37-.1.51-.15.11-.06l-.88.19-.9.11c-.6.07-1.2.17-1.8.21-1.21.03-2.42.12-3.63,0,.57.17.94.21,2.48.27-.46.05-1.21.14-2.07.08-.43-.02-.89-.04-1.36-.05-.47-.01-.93-.11-1.38-.16.82.1,1.23.13,1.36.09.13-.02-.02-.06-.31-.11-.58-.15-1.75-.36-2.43-.53.22.1-.26.04-.15.12-1.83-.56-2-.51-2.34-.54-.17,0-.39-.03-.87-.16-.24-.06-.55-.16-.95-.29-.39-.16-.87-.37-1.46-.64l.29.03c-.93-.32-1.75-.77-2.62-1.18-.43-.22-.83-.49-1.26-.74-.21-.13-.42-.27-.64-.4-.21-.14-.41-.31-.62-.47-.29-.34.13-.03.65.34.55.33,1.21.74,1.3.71-2.5-1.51-4.89-3.27-6.41-5.51.38.5.91,1.06,1.44,1.61.5.58,1.11,1.05,1.58,1.47-.49-.54-.91-.92-1.2-1.29-.3-.37-.55-.66-.78-.92-.12-.13-.23-.26-.35-.39-.11-.14-.21-.28-.33-.43-.2-.27-.43-.57-.7-.93-.17-.25-.33-.51-.49-.76-.1-.17-.2-.34-.3-.51-.23-.38-.46-.75-.65-1.16.23.53.52.94.73,1.31.05.08.09.16.14.23-.24-.4-.48-.79-.72-1.19l-.55-1.11-.28-.55-.23-.57c.07.2.14.4.22.59l.27.57-.39-.58-.32-.62c-.21-.42-.42-.84-.61-1.28-.32-.9-.68-1.82-.88-2.82-.27-.99-.41-2.04-.6-3.14-.1-1.11-.26-2.28-.3-3.54.04.61.06,1.08.1,1.43.06.35.09.59.12.74.06.3.07.26.07.08,0-.36-.04-1.27.08-1.09.03-.63.06-1.42.09-1.99.07-.57.13-.9.14-.63,0-.58.03-1.12.08-1.64.09-.52.17-1.03.26-1.57.07-.54.23-1.1.36-1.73.06-.32.13-.65.2-1.01.08-.35.17-.73.27-1.13.05-.06.24-.66.41-1.17.2-.5.39-.92.38-.64,1.04-2.84-.36.63-.35.37.68-2.25,1.93-4.75,3.58-7.27,1.66-2.52,3.72-5.07,6.04-7.55,1.01-1.05,1.88-1.84,2.59-2.55.76-.67,1.4-1.24,2.03-1.8.3-.26.7-.58.85-1.03.18-.43.2-.94.02-1.41-.17-.49-.61-.81-1-1.21-.1-.1-.21-.21-.32-.31-.38-.39-.81-.82-1.28-1.28-.23-.28.04-.09.42.23.46.4,1.08.98,1.08.98-2.03-2.2-3.71-3.7-5.92-5.46.48.32.05-.09-.56-.69-.87-.72-1.23-.88-1.62-1.14-.4-.25-.84-.58-2.03-1.49.46.24,1.06.53,1.97,1.15-2.15-1.58-4.38-3.01-6.75-4.41-.56-.48,1.52.72,2.35,1.23-2.59-1.72-6.92-4.12-7.88-4.35.44.25.89.5,1.33.75-.36-.24.11-.12.71.19,2.39,1.18,3.27,2,3.36,2.14-.57-.33-1.12-.68-1.7-.99.39.32,1,.76,1.75,1.25.38.24.79.49,1.22.76.43.28.88.57,1.34.87,1.87,1.18,3.89,2.58,5.43,3.82-.38-.22-.76-.42-1.14-.62-6.31-4.91-15.38-10.52-26.69-13.59-.14-.04-.28-.06-.42-.09.21-.06.54-.08.63-.16.24.09.6.21,1.11.35l1.12.11-2.32-.63s0,0-.01,0c-.15-.1-.46-.24-1.02-.39-.7-.18-1.83-.39-3.51-.18-1.54.31-2.99.96-4.22,1.89-.44.24-.86.52-1.24.78.45-.39.99-.81,1.54-1.16.56-.35,1.15-.64,1.76-.88-1.07.34-1.87.83-2.53,1.35-.65.53-1.11,1.01-1.67,1.53-.32.17-.82.54-1.49,1.09-1,1.04-1.98,2.1-2.93,3.18-.45.29,1.2-1.54-.89.47-1.3,1.55,1.53-1.21-.71,1.27-1.53,1.44-1.2.92-2.74,2.84-.23.18-.08-.1.33-.61-.65.79-1.42,1.75-2.14,2.64-.79,1.06-1.51,2-1.77,2.51-1.47,1.64-4.12,6.15-4.21,5.85-.15.32-.59,1.18-1.12,2.18-.49,1.03-1.05,2.19-1.52,3.09.71-1.71-.22-.06-1.14,1.98-.23.51-.49,1.03-.71,1.53-.21.5-.41.98-.58,1.38-.35.79-.59,1.25-.58.99-.2.66-.47,1.58-.79,2.67-.17.54-.36,1.12-.55,1.73-.19.61-.34,1.26-.52,1.92-.77,2.63-1.36,5.54-1.74,7.93.03-.27.07-.8.17-1.21-.54,2.66-.76,3.42-1.08,5.14.11.19,0,1.33-.09,2.72-.11,1.38-.2,3-.22,4.14-.23,1.65-.28,1.14-.3.35-.03-.79.02-1.87-.16-1.36.1-.07.03,1.37,0,2.7-.04,1.33-.01,2.53.09,1.97-.24,2.54-.11,2.19-.35,3.5.34.44.08,2.38.41,4.48.05,1.84.01,2.09-.01,2.37-.02.29,0,.62.29,2.63.08.96-.04.56-.16-.1-.12-.65-.26-1.55-.26-1.55.23,2.06.37,2.53.47,2.6.09.07.13-.27.27.15.39,2.43.52,2.99.46,3.17-.04.17-.18-.05-.08.79.7,3.02,1.58,5.23,2.27,7.42,0,.18.15.6-.07.12.32.75.67,1.7,1.09,2.74.43,1.03.88,2.18,1.41,3.3.5,1.14,1.09,2.25,1.64,3.3.58,1.03,1.15,1.99,1.68,2.77.13.25.19.38.21.45-.22-.59-.16-.73-.02-.67.48.78.97,1.49,1.35,2.08.41.58.73,1.05.85,1.38-.63-.94-.74-.98-1.07-1.39.37.53.76,1.04,1.13,1.57.79,1.57-1.56-2.13-1.66-2.07,2.05,3.18,4.91,6.53,6.79,8.71.13.29-1.04-.93-1.84-1.93-.82-.99-1.38-1.66-.25-.1-.94-1.16-1.79-2.39-2.65-3.61.87,1.48.48.93.05.35-.42-.58-.84-1.2-.09.2.87,1.2,1.55,2.13,2.19,2.89.63.77,1.15,1.41,1.72,2.01,1.11,1.23,2.23,2.44,4.32,4.52,1.04.83-.19-.44.85.39,3.11,2.78,4.37,3.83,5.36,4.81.49.5.97.88,1.63,1.39.33.25.72.52,1.18.84.23.15.49.32.76.5.29.16.6.33.94.52.72.35,1.25.54,2.06.94.81.4,1.94.92,3.86,1.98-.49-.13-.96-.3-1.45-.45,1.26.69,2.13,1,2.75,1.25.62.24,1.02.37,1.43.51.4.14.82.27,1.48.49.67.22,1.56.6,2.96,1.11-1.05-.22-4.25-1.47-3.45-1.12,1.79.77,2.44.98,3,1.11.57.11,1.04.16,2.46.6l.53.4c5.88,1.63,12.6,2.38,19.31,2.39-.37.08-1.53.12.05.21,4.25-.01,8.77-.37,13.22-1,4.45-.63,8.81-1.56,12.76-2.64l2.93-1.12c.69-.21,1.3-.36.57-.05,3.03-1,.12-.17,1.53-.76,1.7-.62,2.3-.7,1.23-.26,2.6-1.07,6.29-2.63,9.87-4.52,3.59-1.86,7.11-3.91,9.62-5.49l-.94.68c1.98-1.2,2.95-2.08,3.94-2.87.49-.39.95-.81,1.52-1.27.56-.47,1.24-.96,2.09-1.6-.2.19-.4.37-.62.54.98-.77,1.94-1.61,2.92-2.42.94-.87,1.89-1.73,2.81-2.63l1.34-1.38c.45-.45.89-.91,1.30-1.41.83-.97,1.65-1.93,2.45-2.87l.6-.71c.19-.24.37-.49.55-.74.36-.49.73-.98,1.08-1.46.71-.96,1.43-1.88,2.08-2.81,1.24-1.89,2.47-3.62,3.52-5.22.24-.7,1.51-2.82,2.71-4.86,1.12-2.09,2.18-4.09,2.15-4.47.72-1.23,1.15-2.09,1.53-2.77.37-.68.65-1.19.96-1.77.3-.58.64-1.22,1.14-2.17.45-.96,1.05-2.23,1.91-4.04.91-1.94,1.06-3.02,2.05-5.47l.21.02c.39-1.13.81-2.26,1.18-3.4l.93-1.68.87-2.32c-.38.91-.86,1.92-.86,1.76.34-.91.73-1.91,1.14-2.89.39-.99.79-1.98,1.16-2.85.73-1.74,1.32-3.03,1.38-3.06l3.02-8.65c0,.15-.24.92-.51,1.75.98-2.95.28-.08,1.52-3.96-.25.55,0-.35,0-.46.72-1.67,2-5.15,3.14-8.3.82.4,1.65.8,2.47,1.18,2.71,1.24,3.57,1.37,4.58,1.63.51.13,1.05.29,1.9.59.85.3,2.04.67,3.79,1.34l-2.09-.46c5.72,1.8,11.72,3.23,17.8,3.85,3.04.23,6.09.47,9.11.36,3.02-.07,6.01-.41,8.9-.93-.69.15-.69.26-1.83.39,1.25-.07,3.52-.46,5.47-.93,1.94-.48,3.55-1.01,3.55-1.09,1.76-.52.44-.01,1.54-.27,1.2-.35,2.68-.9,3.97-1.49,1.32-.55,2.44-1.16,3.09-1.35.14-.05-.17.11-.52.29.33-.16.73-.34,1.15-.56.68-.36,1.44-.73,2.1-1.1,1.3-.75,2.25-1.32,1.52-1.01,3.86-2.2,6.92-4.92,9.49-7.34.37-.44.87-1.03,1.43-1.64.56-.61,1.12-1.32,1.68-1.96.53-.67,1-1.32,1.37-1.84.35-.53.57-.95.61-1.14.02.11.31-.24.76-.85.4-.64,1-1.54,1.53-2.59,1.14-2.06,2.04-4.66,2.43-6-.19.93.8-2.32.6-1.22.91-3.1,1.21-6.05,1-5.51ZM230.24,68.26c-3.36-.96,2.05.44-.41-.36-3.98-.96-6.97-2.32-9.7-3.71-2.1-1.11-4.05-2.27-6.1-3.65.91-1.66,2.13-3.74,2.68-4.96l.15-.13c1.9-3.25,3.43-5.51,4.98-7.52,1.56-2,3.13-3.79,5.44-5.7-.04-.24,1.84-1.65,3.36-2.62,1.96-1.02,4.19-1.78,6.61-2,2.41-.22,4.96.06,7.53.75.9.26,1.42.4,1.72.47.29.09.36.1.38.08.03-.03-.18-.17.62.1.05.07.4.22.84.46.43.25.97.52,1.4.78.85.56,1.37.91.18.25,2.71,1.63,4.14,3.12,5.43,4.91.31.46.64.92.91,1.46.32.51.55,1.1.84,1.73.49,1.28.95,2.85,1.04,4.84.07-.87-.07-1.85.06-1.35.23,1.46-.04,3.32-.11,3.1.01-.13,0-.26,0-.38-.07,2.24-.87,4.62-2.24,6.67-1.42,2.03-3.38,3.73-5.59,4.85-2.2,1.15-4.57,1.82-6.79,2.22-2.23.42-4.35.47-6.17.59l.41-.02c-2.49.08-5-.29-7.47-.86ZM129.03,135.21c.29-.19.92-.55,2.08-1.14.11,0,.22.01.16.1-.8.42-1.6.81-2.42,1.17.03-.03.08-.07.18-.12ZM101.64,88.31c-.22.26-.52.61-.91,1.12-.3.27-.61.54-.91.81.72-.86,1.48-1.71,2.29-2.55-.01.02-.02.05-.05.09-.07.11-.2.27-.41.53ZM102.25,74.17c.35.36.61.68.47.64-.87-.75-1.82-1.55-2.84-2.36.80.56,1.59,1.14,2.37,1.72ZM100.21,189.62c-.54.01-1.03,0-1.43-.02.35.01.81.03,1.43.02h0ZM98.23,189.58c.11,0,.24,0,.38,0-.14,0-.27,0-.38,0ZM104.78,189.49c-.29-.05.02-.13.83-.18-.22.03.15.03.72.02.29,0,.62-.01.96-.02.34-.02.68-.04.98-.06-.98.11-2.2.15-3.49.24Z"/>
                   <g>
                     <path fill="#fffaff" d="M253.09,146.87c0,9.98-7.87,15.9-19.27,15.9-12.6,0-19.28-5.1-19.28-17.1v-26.93l-3.97-.23v-6.6h18.98v6.38l-2.4.22c-1.27.23-1.8.45-1.8,2.18v25.2c0,6.9,3.75,8.85,9.15,8.85s8.62-2.55,8.62-8.48v-27.6l-3.67-.23v-6.53h17.78v6.3l-2.25.23c-1.27.23-1.88.6-1.88,2.32v26.1Z"/>
                     <path fill="#fffaff" d="M261.43,155.5l2.4-.23c1.43-.22,1.73-.6,1.73-2.32v-34.2l-3.98-.23v-6.6h21.83c11.4,0,18.23,5.32,18.23,15.53,0,11.48-8.25,17.25-19.88,17.25h-5.47v10.28l6.9.3v6.53h-21.75v-6.3ZM280.78,137.2c5.93,0,9.75-2.32,9.75-8.92,0-7.28-3.75-8.7-9.98-8.7h-4.28v17.62h4.5Z"/>
@@ -350,137 +596,196 @@
                     <path fill="#fffaff" d="M465.94,133.75c0,10.73-9.38,13.5-21.15,13.13.38,4.35,2.7,7.95,8.48,7.95,4.2,0,7.35-1.58,9.45-3l3,7.12c-.98.6-6.08,3.9-13.8,3.9-12.82,0-17.7-8.25-17.7-19.05,0-11.48,6.68-21,18.98-21,7.8,0,12.75,3.45,12.75,10.95ZM452.66,130.37c-4.95,0-7.73,4.5-7.95,9.6,7.5.3,12.08-.97,12.08-5.7,0-2.78-1.73-3.9-4.13-3.9Z"/>
                   </g>
                 </svg>
-                <div className="border-l border-white/20 pl-4">
-                  <h1 className="text-2xl font-bold tracking-tight">ProjectFlow</h1>
-                  <p className="text-xs text-slate-400 font-mono">Gestão Visual de Projetos</p>
+                <div className="border-l border-white/20 pl-3 sm:pl-4">
+                  <h1 className="text-lg sm:text-2xl font-bold tracking-tight">ProjectFlow</h1>
+                  <p className="text-xs text-slate-400 font-mono hidden sm:block">Gestão Visual de Projetos</p>
                 </div>
               </div>
-              
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setView('gantt')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                    view === 'gantt'
-                      ? 'bg-cyan-500 text-white'
-                      : 'bg-white/5 text-slate-300 hover:bg-white/10'
-                  }`}
-                >
-                  Gantt
-                </button>
-                <button
-                  onClick={() => setView('list')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                    view === 'list'
-                      ? 'bg-cyan-500 text-white'
-                      : 'bg-white/5 text-slate-300 hover:bg-white/10'
-                  }`}
-                >
-                  Lista
-                </button>
+
+              <div className="flex items-center gap-2">
+                {/* Export/Import */}
+                <div className="hidden sm:flex gap-1">
+                  <button
+                    onClick={exportData}
+                    title="Exportar backup (JSON)"
+                    className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition text-slate-300 hover:text-white"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Importar backup (JSON)"
+                    className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition text-slate-300 hover:text-white"
+                  >
+                    <Upload className="w-4 h-4" />
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json"
+                    onChange={importData}
+                    className="hidden"
+                  />
+                </div>
+
+                <div className="flex gap-1 bg-white/5 rounded-lg p-1">
+                  <button
+                    onClick={() => setView('gantt')}
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition ${
+                      view === 'gantt'
+                        ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
+                        : 'text-slate-300 hover:bg-white/10'
+                    }`}
+                  >
+                    Gantt
+                  </button>
+                  <button
+                    onClick={() => setView('list')}
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition ${
+                      view === 'list'
+                        ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
+                        : 'text-slate-300 hover:bg-white/10'
+                    }`}
+                  >
+                    Lista
+                  </button>
+                </div>
               </div>
             </div>
           </header>
 
-          <div className="max-w-7xl mx-auto px-6 py-8">
-            <div className="grid grid-cols-12 gap-6">
-              {/* Sidebar - Projects */}
-              <aside className="col-span-3 animate-slide-in" style={{ animationDelay: '0.1s' }}>
-                <div className="glass rounded-2xl p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-bold">Projetos</h2>
-                    <button
-                      onClick={() => setShowNewProject(true)}
-                      className="w-8 h-8 rounded-lg bg-cyan-500 hover:bg-cyan-600 flex items-center justify-center transition"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+            <div className="flex gap-6">
+              {/* Sidebar - Projects (Desktop) */}
+              <aside className="hidden lg:block w-72 flex-shrink-0 animate-slide-in" style={{ animationDelay: '0.1s' }}>
+                <ProjectSidebar
+                  projects={projects}
+                  selectedProject={selectedProject}
+                  onSelectProject={setSelectedProject}
+                  onDeleteProject={deleteProject}
+                  showNewProject={showNewProject}
+                  onToggleNewProject={setShowNewProject}
+                  onAddProject={addProject}
+                />
+              </aside>
 
-                  <div className="space-y-2">
-                    {projects.map(project => (
-                      <div
-                        key={project.id}
-                        className={`project-card p-4 rounded-xl cursor-pointer group ${
-                          selectedProject === project.id
-                            ? 'bg-white/10 border-2'
-                            : 'bg-white/5 border-2 border-transparent hover:border-white/20'
-                        }`}
-                        style={{ borderColor: selectedProject === project.id ? project.color : undefined }}
-                        onClick={() => setSelectedProject(project.id)}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ background: project.color }}
-                              />
-                              <h3 className="font-semibold text-sm truncate">{project.name}</h3>
-                            </div>
-                            <p className="text-xs text-slate-400 font-mono">
-                              {project.tasks.length} tarefas
-                            </p>
-                          </div>
-                          {projects.length > 1 && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm('Deletar projeto?')) {
-                                  deleteProject(project.id);
-                                }
-                              }}
-                              className="text-slate-400 hover:text-red-400 transition opacity-0 group-hover:opacity-100"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {showNewProject && (
-                    <NewProjectForm 
-                      onSave={addProject} 
-                      onCancel={() => setShowNewProject(false)} 
-                    />
-                  )}
+              {/* Sidebar - Projects (Mobile) */}
+              {sidebarOpen && (
+                <div className="sidebar-overlay lg:hidden" onClick={() => setSidebarOpen(false)} />
+              )}
+              <aside className={`sidebar-panel lg:hidden ${sidebarOpen ? 'open' : ''} bg-slate-900 p-4`}>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-bold">Projetos</h2>
+                  <button onClick={() => setSidebarOpen(false)} className="p-2 hover:bg-white/10 rounded-lg">
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
+                <ProjectSidebar
+                  projects={projects}
+                  selectedProject={selectedProject}
+                  onSelectProject={(id) => { setSelectedProject(id); setSidebarOpen(false); }}
+                  onDeleteProject={deleteProject}
+                  showNewProject={showNewProject}
+                  onToggleNewProject={setShowNewProject}
+                  onAddProject={addProject}
+                />
               </aside>
 
               {/* Main Content */}
-              <main className="col-span-9 animate-slide-in" style={{ animationDelay: '0.2s' }}>
+              <main className="flex-1 min-w-0 animate-slide-in" style={{ animationDelay: '0.2s' }}>
                 {currentProject ? (
                   <>
-                    {/* Project Header */}
-                    <div className="glass rounded-2xl p-6 mb-6">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h2 className="text-3xl font-bold mb-2">{currentProject.name}</h2>
-                          <div className="flex items-center gap-4 text-sm text-slate-400 font-mono">
-                            <span>{currentProject.tasks.length} tarefas</span>
-                            <span>•</span>
-                            <span>
-                              {currentProject.tasks.filter(t => t.status === 'completed').length} concluídas
-                            </span>
-                            <span>•</span>
-                            <span>
-                              {Math.round(
-                                (currentProject.tasks.reduce((acc, t) => acc + t.progress, 0) /
-                                  (currentProject.tasks.length || 1))
-                              )}% progresso
-                            </span>
-                          </div>
+                    {/* Project Header with Stats */}
+                    <div className="glass rounded-2xl p-4 sm:p-6 mb-6">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <h2 className="text-2xl sm:text-3xl font-bold mb-2">{currentProject.name}</h2>
+                          {projectStats && (
+                            <div className="flex flex-wrap items-center gap-3 text-sm">
+                              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 font-mono text-slate-300">
+                                {projectStats.total} tarefas
+                              </span>
+                              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 font-mono">
+                                {projectStats.completed} concluídas
+                              </span>
+                              {projectStats.overdue > 0 && (
+                                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 text-red-400 font-mono">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  {projectStats.overdue} atrasada{projectStats.overdue > 1 ? 's' : ''}
+                                </span>
+                              )}
+                              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-400 font-mono">
+                                {projectStats.avgProgress}% progresso
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Overall progress bar */}
+                          {projectStats && (
+                            <div className="mt-4 flex items-center gap-3">
+                              <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all duration-500"
+                                  style={{
+                                    width: `${projectStats.avgProgress}%`,
+                                    background: `linear-gradient(90deg, #06b6d4, #3b82f6)`
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <button
                           onClick={() => setShowNewTask(true)}
-                          className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition flex items-center gap-2"
+                          className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition flex items-center gap-2 whitespace-nowrap self-start"
                         >
                           <Plus className="w-4 h-4" />
                           Nova Tarefa
                         </button>
                       </div>
                     </div>
+
+                    {/* Search and Filter Bar */}
+                    {currentProject.tasks.length > 0 && (
+                      <div className="glass rounded-xl p-3 mb-4 flex flex-col sm:flex-row gap-3">
+                        <div className="relative flex-1">
+                          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            placeholder="Buscar tarefas, responsáveis..."
+                            className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 placeholder-slate-500"
+                          />
+                          {searchQuery && (
+                            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex gap-1 bg-white/5 rounded-lg p-1 self-start">
+                          {[
+                            { value: 'all', label: 'Todas' },
+                            { value: 'pending', label: 'Pendente' },
+                            { value: 'in-progress', label: 'Em Progresso' },
+                            { value: 'completed', label: 'Concluída' },
+                            { value: 'overdue', label: 'Atrasada' },
+                          ].map(f => (
+                            <button
+                              key={f.value}
+                              onClick={() => setStatusFilter(f.value)}
+                              className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                                statusFilter === f.value
+                                  ? 'bg-cyan-500 text-white'
+                                  : 'text-slate-400 hover:text-white hover:bg-white/10'
+                              }`}
+                            >
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {showNewTask && (
                       <div className="glass rounded-2xl p-6 mb-6 animate-scale-in">
@@ -495,31 +800,47 @@
                     {/* Views */}
                     {view === 'gantt' ? (
                       <GanttView
-                        project={currentProject}
+                        project={filteredProject}
                         onUpdateTask={updateTask}
                         onDeleteTask={deleteTask}
                         onEditTask={setEditingTask}
                       />
                     ) : (
                       <ListView
-                        project={currentProject}
+                        project={filteredProject}
                         onUpdateTask={updateTask}
                         onDeleteTask={deleteTask}
+                        onEditTask={setEditingTask}
                       />
                     )}
 
+                    {/* Filter results info */}
+                    {(searchQuery || statusFilter !== 'all') && currentProject.tasks.length > 0 && (
+                      <div className="mt-3 text-xs text-slate-500 text-center">
+                        Mostrando {filteredTasks.length} de {currentProject.tasks.length} tarefas
+                        {searchQuery && <span> para "{searchQuery}"</span>}
+                      </div>
+                    )}
+
                     {editingTask && (
-                      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in">
+                      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) setEditingTask(null); }}>
                         <div className="glass rounded-2xl p-6 max-w-lg w-full mx-4 animate-scale-in">
-                          <h3 className="text-xl font-bold mb-4">Editar Tarefa</h3>
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-bold">Editar Tarefa</h3>
+                            <button onClick={() => setEditingTask(null)} className="p-1 hover:bg-white/10 rounded-lg transition">
+                              <X className="w-5 h-5" />
+                            </button>
+                          </div>
                           <TaskForm
                             initialData={editingTask}
                             onSave={(data) => {
                               updateTask(editingTask.id, data);
                               setEditingTask(null);
+                              showToast('Tarefa atualizada', 'success');
                             }}
                             onCancel={() => setEditingTask(null)}
                             existingTasks={currentProject.tasks}
+                            isEditing
                           />
                         </div>
                       </div>
@@ -529,12 +850,112 @@
                   <div className="glass rounded-2xl p-12 text-center">
                     <Calendar className="w-16 h-16 mx-auto mb-4 text-slate-600" />
                     <h3 className="text-xl font-semibold mb-2">Nenhum projeto selecionado</h3>
-                    <p className="text-slate-400">Crie um novo projeto para começar</p>
+                    <p className="text-slate-400 mb-4">Crie um novo projeto para começar</p>
+                    <button
+                      onClick={() => { setShowNewProject(true); setSidebarOpen(true); }}
+                      className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg text-sm font-semibold hover:shadow-lg transition"
+                    >
+                      Criar Projeto
+                    </button>
                   </div>
                 )}
               </main>
             </div>
           </div>
+
+          {/* Keyboard shortcut hint */}
+          <div className="fixed bottom-4 left-4 text-xs text-slate-600 font-mono hidden lg:block">
+            Esc fechar | Ctrl+N nova tarefa
+          </div>
+
+          {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+        </div>
+      );
+    }
+
+    // Project Sidebar Component (extracted for desktop/mobile reuse)
+    function ProjectSidebar({ projects, selectedProject, onSelectProject, onDeleteProject, showNewProject, onToggleNewProject, onAddProject }) {
+      return (
+        <div className="glass rounded-2xl p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold">Projetos</h2>
+            <button
+              onClick={() => onToggleNewProject(true)}
+              className="w-8 h-8 rounded-lg bg-cyan-500 hover:bg-cyan-600 flex items-center justify-center transition"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {projects.map(project => {
+              const taskCount = project.tasks.length;
+              const avgProgress = taskCount > 0
+                ? Math.round(project.tasks.reduce((a, t) => a + t.progress, 0) / taskCount)
+                : 0;
+              const overdueCount = project.tasks.filter(t => isOverdue(t)).length;
+
+              return (
+                <div
+                  key={project.id}
+                  className={`project-card p-4 rounded-xl cursor-pointer group ${
+                    selectedProject === project.id
+                      ? 'bg-white/10 border-2'
+                      : 'bg-white/5 border-2 border-transparent hover:border-white/20'
+                  }`}
+                  style={{ borderColor: selectedProject === project.id ? project.color : undefined }}
+                  onClick={() => onSelectProject(project.id)}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ background: project.color }}
+                        />
+                        <h3 className="font-semibold text-sm truncate">{project.name}</h3>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
+                        <span>{taskCount} tarefas</span>
+                        {overdueCount > 0 && (
+                          <span className="text-red-400">{overdueCount} atrasada{overdueCount > 1 ? 's' : ''}</span>
+                        )}
+                      </div>
+                      {/* Progress bar in sidebar */}
+                      {taskCount > 0 && (
+                        <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${avgProgress}%`, background: project.color }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {projects.length > 1 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm('Deletar projeto?')) {
+                            onDeleteProject(project.id);
+                          }
+                        }}
+                        className="text-slate-400 hover:text-red-400 transition opacity-0 group-hover:opacity-100 flex-shrink-0"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {showNewProject && (
+            <NewProjectForm
+              onSave={onAddProject}
+              onCancel={() => onToggleNewProject(false)}
+            />
+          )}
         </div>
       );
     }
@@ -544,7 +965,7 @@
       const [name, setName] = useState('');
       const [color, setColor] = useState('#FF6B35');
 
-      const colors = ['#FF6B35', '#F7931E', '#00C9A7', '#845EC2', '#FF6F91', '#C34A36', '#00D2FC'];
+      const colors = ['#FF6B35', '#F7931E', '#00C9A7', '#845EC2', '#FF6F91', '#C34A36', '#00D2FC', '#3B82F6', '#10B981', '#F59E0B'];
 
       const handleSubmit = (e) => {
         e.preventDefault();
@@ -564,7 +985,7 @@
             className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-cyan-500"
             autoFocus
           />
-          <div className="flex gap-2 mb-3">
+          <div className="flex flex-wrap gap-2 mb-3">
             {colors.map(c => (
               <button
                 key={c}
@@ -597,20 +1018,27 @@
     }
 
     // Task Form Component
-    function TaskForm({ initialData, onSave, onCancel, existingTasks }) {
+    function TaskForm({ initialData, onSave, onCancel, existingTasks, isEditing }) {
       const [formData, setFormData] = useState(initialData || {
         name: '',
         description: '',
         start: new Date().toISOString().split('T')[0],
         end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         assignee: '',
+        status: 'pending',
+        progress: 0,
         dependencies: []
       });
 
       const handleSubmit = (e) => {
         e.preventDefault();
         if (formData.name.trim()) {
-          onSave(formData);
+          // Auto-set progress when marking complete
+          const data = { ...formData };
+          if (data.status === 'completed' && data.progress < 100) {
+            data.progress = 100;
+          }
+          onSave(data);
         }
       };
 
@@ -624,6 +1052,7 @@
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
               placeholder="Ex: Design do Key Visual"
+              autoFocus
               required
             />
           </div>
@@ -673,6 +1102,50 @@
             />
           </div>
 
+          {/* Status and Progress - shown in edit mode */}
+          {isEditing && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Status</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => {
+                    const newStatus = e.target.value;
+                    setFormData({
+                      ...formData,
+                      status: newStatus,
+                      progress: newStatus === 'completed' ? 100 : (newStatus === 'pending' ? 0 : formData.progress)
+                    });
+                  }}
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  <option value="pending" className="bg-slate-800">Pendente</option>
+                  <option value="in-progress" className="bg-slate-800">Em Progresso</option>
+                  <option value="completed" className="bg-slate-800">Concluída</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Progresso: {formData.progress}%</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={formData.progress}
+                  onChange={(e) => {
+                    const prog = parseInt(e.target.value);
+                    setFormData({
+                      ...formData,
+                      progress: prog,
+                      status: prog === 100 ? 'completed' : (prog > 0 ? 'in-progress' : 'pending')
+                    });
+                  }}
+                  className="w-full mt-2 accent-cyan-500"
+                />
+              </div>
+            </div>
+          )}
+
           {existingTasks && existingTasks.length > 0 && (
             <div>
               <label className="block text-sm font-medium mb-2">Dependências</label>
@@ -691,7 +1164,7 @@
                             : deps.filter(id => id !== task.id)
                         });
                       }}
-                      className="rounded"
+                      className="rounded accent-cyan-500"
                     />
                     <span className="text-slate-300">{task.name}</span>
                   </label>
@@ -722,7 +1195,7 @@
     // Gantt View Component
     function GanttView({ project, onUpdateTask, onDeleteTask, onEditTask }) {
       const dateRange = getDateRange(project);
-      
+
       if (!dateRange || project.tasks.length === 0) {
         return (
           <div className="glass rounded-2xl p-12 text-center">
@@ -753,119 +1226,161 @@
 
       return (
         <div className="glass rounded-2xl overflow-hidden">
-          <div className="border-b border-white/10 bg-white/5">
-            <div className="flex">
-              <div className="w-72 p-4 border-r border-white/10">
-                <span className="text-sm font-semibold text-slate-400">TAREFA</span>
-              </div>
-              <div className="flex-1 p-4">
-                <div className="flex justify-between text-xs font-mono text-slate-400">
-                  {weeks.map((date, i) => (
-                    <div key={i} className="text-center">
-                      <div className="font-semibold">{date.toLocaleDateString('pt-BR', { month: 'short' })}</div>
-                      <div>{date.getDate()}</div>
+          <div className="overflow-x-auto">
+            <div className="min-w-[800px]">
+              <div className="border-b border-white/10 bg-white/5">
+                <div className="flex">
+                  <div className="w-72 p-4 border-r border-white/10 flex-shrink-0">
+                    <span className="text-sm font-semibold text-slate-400">TAREFA</span>
+                  </div>
+                  <div className="flex-1 p-4">
+                    <div className="flex justify-between text-xs font-mono text-slate-400">
+                      {weeks.map((date, i) => (
+                        <div key={i} className="text-center">
+                          <div className="font-semibold">{date.toLocaleDateString('pt-BR', { month: 'short' })}</div>
+                          <div>{date.getDate()}</div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="divide-y divide-white/5">
-            {project.tasks.map((task, index) => {
-              const leftPos = getDatePosition(task.start, minDate, totalDays);
-              const width = (getDuration(task.start, task.end) / totalDays) * 100;
+              <div className="divide-y divide-white/5">
+                {project.tasks.map((task, index) => {
+                  const leftPos = getDatePosition(task.start, minDate, totalDays);
+                  const width = (getDuration(task.start, task.end) / totalDays) * 100;
+                  const taskOverdue = isOverdue(task);
+                  const taskDueSoon = isDueSoon(task);
 
-              return (
-                <div
-                  key={task.id}
-                  className="task-row flex animate-slide-in"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <div className="w-72 p-4 border-r border-white/10 flex items-center gap-3">
-                    <GripVertical className="w-4 h-4 text-slate-600" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate mb-1">{task.name}</div>
-                      {task.description && (
-                        <div className="text-xs text-slate-400 line-clamp-1 mb-1" title={task.description}>
-                          {task.description}
+                  return (
+                    <div
+                      key={task.id}
+                      className={`task-row flex animate-slide-in ${taskOverdue ? 'bg-red-500/5' : ''}`}
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                      <div className="w-72 p-4 border-r border-white/10 flex items-center gap-3 flex-shrink-0">
+                        <GripVertical className="w-4 h-4 text-slate-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="font-medium text-sm truncate">{task.name}</span>
+                            {taskOverdue && (
+                              <span title="Atrasada!" className="flex-shrink-0">
+                                <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+                              </span>
+                            )}
+                            {taskDueSoon && !taskOverdue && (
+                              <span title="Vence em breve!" className="flex-shrink-0">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                              </span>
+                            )}
+                          </div>
+                          {task.description && (
+                            <div className="text-xs text-slate-400 line-clamp-1 mb-1" title={task.description}>
+                              {task.description}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 text-xs text-slate-400">
+                            {task.assignee && <span className="font-mono">{task.assignee}</span>}
+                            <span className="px-2 py-0.5 rounded-full bg-white/10 font-mono">
+                              {task.progress}%
+                            </span>
+                          </div>
                         </div>
-                      )}
-                      <div className="flex items-center gap-2 text-xs text-slate-400">
-                        {task.assignee && <span className="font-mono">{task.assignee}</span>}
-                        <span className="px-2 py-0.5 rounded-full bg-white/10 font-mono">
-                          {task.progress}%
-                        </span>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => onEditTask(task)}
+                            className="p-1 hover:bg-white/10 rounded transition"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('Deletar tarefa?')) {
+                                onDeleteTask(task.id);
+                              }
+                            }}
+                            className="p-1 hover:bg-red-500/20 rounded transition text-red-400"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 p-4 relative">
+                        <div
+                          className={`gantt-bar h-8 rounded-lg flex items-center px-3 cursor-pointer relative overflow-hidden ${taskOverdue ? 'overdue-pulse' : ''}`}
+                          style={{
+                            left: `${leftPos}%`,
+                            width: `${Math.max(width, 2)}%`,
+                            background: taskOverdue
+                              ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                              : `linear-gradient(135deg, ${getStatusColor(task.status)}, ${getStatusColor(task.status)}dd)`,
+                            position: 'absolute',
+                            top: '16px'
+                          }}
+                          onClick={() => onEditTask(task)}
+                          title={`${task.name} | ${task.progress}% | ${new Date(task.start).toLocaleDateString('pt-BR')} - ${new Date(task.end).toLocaleDateString('pt-BR')}`}
+                        >
+                          <div
+                            className="absolute inset-0 bg-white/20"
+                            style={{ width: `${task.progress}%` }}
+                          />
+
+                          <span className="text-xs font-semibold relative z-10 truncate">
+                            {getDuration(task.start, task.end)}d
+                          </span>
+                        </div>
+
+                        {/* Dependency arrows */}
+                        {task.dependencies && task.dependencies.map(depId => {
+                          const depTask = project.tasks.find(t => t.id === depId);
+                          if (!depTask) return null;
+                          const depEndPos = getDatePosition(depTask.end, minDate, totalDays);
+                          const taskStartPos = getDatePosition(task.start, minDate, totalDays);
+                          if (depEndPos >= taskStartPos) return null;
+                          return (
+                            <div
+                              key={depId}
+                              className="absolute top-5 h-0.5 bg-slate-500/40"
+                              style={{
+                                left: `${depEndPos + 0.5}%`,
+                                width: `${taskStartPos - depEndPos - 0.5}%`,
+                              }}
+                            >
+                              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-[3px] border-t-transparent border-b-[3px] border-b-transparent border-l-[5px] border-l-slate-500/60" />
+                            </div>
+                          );
+                        })}
+
+                        {(() => {
+                          const today = new Date();
+                          if (today >= minDate && today <= maxDate) {
+                            const todayPos = getDatePosition(today.toISOString().split('T')[0], minDate, totalDays);
+                            return (
+                              <div
+                                className="absolute top-0 bottom-0 w-0.5 bg-red-500 opacity-50"
+                                style={{ left: `${todayPos}%` }}
+                              >
+                                <div className="absolute -top-2 -left-6 text-xs font-mono text-red-500">Hoje</div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => onEditTask(task)}
-                        className="p-1 hover:bg-white/10 rounded transition"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm('Deletar tarefa?')) {
-                            onDeleteTask(task.id);
-                          }
-                        }}
-                        className="p-1 hover:bg-red-500/20 rounded transition text-red-400"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex-1 p-4 relative">
-                    <div
-                      className="gantt-bar h-8 rounded-lg flex items-center px-3 cursor-pointer relative overflow-hidden"
-                      style={{
-                        left: `${leftPos}%`,
-                        width: `${width}%`,
-                        background: `linear-gradient(135deg, ${getStatusColor(task.status)}, ${getStatusColor(task.status)}dd)`,
-                        position: 'absolute',
-                        top: '16px'
-                      }}
-                      onClick={() => onEditTask(task)}
-                    >
-                      <div
-                        className="absolute inset-0 bg-white/20"
-                        style={{ width: `${task.progress}%` }}
-                      />
-                      
-                      <span className="text-xs font-semibold relative z-10 truncate">
-                        {getDuration(task.start, task.end)}d
-                      </span>
-                    </div>
-
-                    {(() => {
-                      const today = new Date();
-                      if (today >= minDate && today <= maxDate) {
-                        const todayPos = getDatePosition(today.toISOString().split('T')[0], minDate, totalDays);
-                        return (
-                          <div
-                            className="absolute top-0 bottom-0 w-0.5 bg-red-500 opacity-50"
-                            style={{ left: `${todayPos}%` }}
-                          >
-                            <div className="absolute -top-2 -left-6 text-xs font-mono text-red-500">Hoje</div>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       );
     }
 
     // List View Component
-    function ListView({ project, onUpdateTask, onDeleteTask }) {
+    function ListView({ project, onUpdateTask, onDeleteTask, onEditTask }) {
       const getStatusLabel = (status) => {
         switch (status) {
           case 'completed': return 'Concluída';
@@ -895,87 +1410,108 @@
 
       return (
         <div className="glass rounded-2xl overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-white/5 border-b border-white/10">
-              <tr>
-                <th className="text-left p-4 text-sm font-semibold text-slate-400">TAREFA</th>
-                <th className="text-left p-4 text-sm font-semibold text-slate-400">DESCRIÇÃO</th>
-                <th className="text-left p-4 text-sm font-semibold text-slate-400">STATUS</th>
-                <th className="text-left p-4 text-sm font-semibold text-slate-400">RESPONSÁVEL</th>
-                <th className="text-left p-4 text-sm font-semibold text-slate-400">PERÍODO</th>
-                <th className="text-left p-4 text-sm font-semibold text-slate-400">PROGRESSO</th>
-                <th className="text-right p-4 text-sm font-semibold text-slate-400">AÇÕES</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {project.tasks.map((task, index) => (
-                <tr
-                  key={task.id}
-                  className="task-row animate-slide-in"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <td className="p-4">
-                    <div className="font-medium">{task.name}</div>
-                  </td>
-                  <td className="p-4 max-w-xs">
-                    <div className="text-sm text-slate-300 line-clamp-2" title={task.description}>
-                      {task.description || <span className="text-slate-500 italic">Sem descrição</span>}
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(task.status)}`}>
-                      {getStatusLabel(task.status)}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <span className="text-sm font-mono text-slate-300">{task.assignee || '-'}</span>
-                  </td>
-                  <td className="p-4">
-                    <div className="text-sm font-mono text-slate-300">
-                      {new Date(task.start).toLocaleDateString('pt-BR')} → {new Date(task.end).toLocaleDateString('pt-BR')}
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all"
-                          style={{ width: `${task.progress}%` }}
-                        />
-                      </div>
-                      <span className="text-sm font-mono text-slate-400 w-12 text-right">
-                        {task.progress}%
-                      </span>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => {
-                          const newStatus = task.status === 'pending' ? 'in-progress' :
-                                           task.status === 'in-progress' ? 'completed' : 'pending';
-                          onUpdateTask(task.id, { status: newStatus });
-                        }}
-                        className="p-2 hover:bg-white/10 rounded-lg transition"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm('Deletar tarefa?')) {
-                            onDeleteTask(task.id);
-                          }
-                        }}
-                        className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px]">
+              <thead className="bg-white/5 border-b border-white/10">
+                <tr>
+                  <th className="text-left p-4 text-sm font-semibold text-slate-400">TAREFA</th>
+                  <th className="text-left p-4 text-sm font-semibold text-slate-400 hidden lg:table-cell">DESCRIÇÃO</th>
+                  <th className="text-left p-4 text-sm font-semibold text-slate-400">STATUS</th>
+                  <th className="text-left p-4 text-sm font-semibold text-slate-400">RESPONSÁVEL</th>
+                  <th className="text-left p-4 text-sm font-semibold text-slate-400">PERÍODO</th>
+                  <th className="text-left p-4 text-sm font-semibold text-slate-400">PROGRESSO</th>
+                  <th className="text-right p-4 text-sm font-semibold text-slate-400">AÇÕES</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {project.tasks.map((task, index) => {
+                  const taskOverdue = isOverdue(task);
+                  const taskDueSoon = isDueSoon(task);
+
+                  return (
+                    <tr
+                      key={task.id}
+                      className={`task-row animate-slide-in ${taskOverdue ? 'bg-red-500/5' : ''}`}
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{task.name}</span>
+                          {taskOverdue && <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" title="Atrasada!" />}
+                          {taskDueSoon && !taskOverdue && <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" title="Vence em breve!" />}
+                        </div>
+                      </td>
+                      <td className="p-4 max-w-xs hidden lg:table-cell">
+                        <div className="text-sm text-slate-300 line-clamp-2" title={task.description}>
+                          {task.description || <span className="text-slate-500 italic">Sem descrição</span>}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${taskOverdue ? 'bg-red-500/20 text-red-400' : getStatusColor(task.status)}`}>
+                          {taskOverdue ? 'Atrasada' : getStatusLabel(task.status)}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <span className="text-sm font-mono text-slate-300">{task.assignee || '-'}</span>
+                      </td>
+                      <td className="p-4">
+                        <div className="text-sm font-mono text-slate-300 whitespace-nowrap">
+                          {new Date(task.start).toLocaleDateString('pt-BR')} → {new Date(task.end).toLocaleDateString('pt-BR')}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden min-w-[60px]">
+                            <div
+                              className={`h-full rounded-full transition-all ${taskOverdue ? 'bg-red-500' : 'bg-gradient-to-r from-cyan-500 to-blue-500'}`}
+                              style={{ width: `${task.progress}%` }}
+                            />
+                          </div>
+                          <span className="text-sm font-mono text-slate-400 w-12 text-right">
+                            {task.progress}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            onClick={() => onEditTask(task)}
+                            className="p-2 hover:bg-white/10 rounded-lg transition"
+                            title="Editar tarefa"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const newStatus = task.status === 'pending' ? 'in-progress' :
+                                               task.status === 'in-progress' ? 'completed' : 'pending';
+                              const newProgress = newStatus === 'completed' ? 100 : (newStatus === 'pending' ? 0 : task.progress);
+                              onUpdateTask(task.id, { status: newStatus, progress: newProgress });
+                            }}
+                            className="p-2 hover:bg-white/10 rounded-lg transition"
+                            title="Avançar status"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('Deletar tarefa?')) {
+                                onDeleteTask(task.id);
+                              }
+                            }}
+                            className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition"
+                            title="Deletar tarefa"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       );
     }
