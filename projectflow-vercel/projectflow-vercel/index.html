@@ -749,26 +749,24 @@
                 </div>
 
                 <div className="flex gap-1 bg-white/5 rounded-lg p-1">
-                  <button
-                    onClick={() => setView('gantt')}
-                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition ${
-                      view === 'gantt'
-                        ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
-                        : 'text-slate-300 hover:bg-white/10'
-                    }`}
-                  >
-                    Gantt
-                  </button>
-                  <button
-                    onClick={() => setView('list')}
-                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition ${
-                      view === 'list'
-                        ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
-                        : 'text-slate-300 hover:bg-white/10'
-                    }`}
-                  >
-                    Lista
-                  </button>
+                  {[
+                    { key: 'gantt', label: 'Gantt' },
+                    { key: 'list', label: 'Lista' },
+                    { key: 'kanban', label: 'Kanban' },
+                    { key: 'calendar', label: 'Calendário' },
+                  ].map(v => (
+                    <button
+                      key={v.key}
+                      onClick={() => setView(v.key)}
+                      className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition ${
+                        view === v.key
+                          ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
+                          : 'text-slate-300 hover:bg-white/10'
+                      }`}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -918,18 +916,33 @@
                     )}
 
                     {/* Views */}
-                    {view === 'gantt' ? (
+                    {view === 'gantt' && (
                       <GanttView
                         project={filteredProject}
                         onUpdateTask={updateTask}
                         onDeleteTask={deleteTask}
                         onEditTask={setEditingTask}
                       />
-                    ) : (
+                    )}
+                    {view === 'list' && (
                       <ListView
                         project={filteredProject}
                         onUpdateTask={updateTask}
                         onDeleteTask={deleteTask}
+                        onEditTask={setEditingTask}
+                      />
+                    )}
+                    {view === 'kanban' && (
+                      <KanbanView
+                        project={filteredProject}
+                        onUpdateTask={updateTask}
+                        onDeleteTask={deleteTask}
+                        onEditTask={setEditingTask}
+                      />
+                    )}
+                    {view === 'calendar' && (
+                      <CalendarView
+                        project={filteredProject}
                         onEditTask={setEditingTask}
                       />
                     )}
@@ -1631,6 +1644,221 @@
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      );
+    }
+
+    // Kanban View Component
+    function KanbanView({ project, onUpdateTask, onDeleteTask, onEditTask }) {
+      const columns = [
+        { status: 'pending', label: 'Pendente', color: 'purple', bg: 'bg-purple-500/10', border: 'border-purple-500/30', badge: 'bg-purple-500/20 text-purple-400' },
+        { status: 'in-progress', label: 'Em Progresso', color: 'blue', bg: 'bg-blue-500/10', border: 'border-blue-500/30', badge: 'bg-blue-500/20 text-blue-400' },
+        { status: 'completed', label: 'Concluída', color: 'emerald', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', badge: 'bg-emerald-500/20 text-emerald-400' },
+      ];
+
+      const handleDragStart = (e, taskId) => {
+        e.dataTransfer.setData('text/plain', taskId.toString());
+        e.dataTransfer.effectAllowed = 'move';
+      };
+
+      const handleDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        e.currentTarget.classList.add('ring-2', 'ring-cyan-500/50');
+      };
+
+      const handleDragLeave = (e) => {
+        e.currentTarget.classList.remove('ring-2', 'ring-cyan-500/50');
+      };
+
+      const handleDrop = (e, newStatus) => {
+        e.preventDefault();
+        e.currentTarget.classList.remove('ring-2', 'ring-cyan-500/50');
+        const taskId = parseInt(e.dataTransfer.getData('text/plain'));
+        const task = project.tasks.find(t => t.id === taskId);
+        if (task && task.status !== newStatus) {
+          const newProgress = newStatus === 'completed' ? 100 : (newStatus === 'pending' ? 0 : (task.progress > 0 ? task.progress : 10));
+          onUpdateTask(taskId, { status: newStatus, progress: newProgress });
+        }
+      };
+
+      if (project.tasks.length === 0) {
+        return (
+          <div className="glass rounded-2xl p-12 text-center">
+            <h3 className="text-xl font-semibold mb-2">Nenhuma tarefa ainda</h3>
+            <p className="text-slate-400">Adicione tarefas para visualizar o Kanban</p>
+          </div>
+        );
+      }
+
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {columns.map(col => {
+            const tasks = project.tasks.filter(t => t.status === col.status);
+            return (
+              <div
+                key={col.status}
+                className={`glass rounded-2xl p-4 min-h-[300px] transition-all ${col.bg} border ${col.border}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, col.status)}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-sm">{col.label}</h3>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${col.badge}`}>{tasks.length}</span>
+                </div>
+                <div className="space-y-3">
+                  {tasks.map(task => {
+                    const taskOverdue = isOverdue(task);
+                    return (
+                      <div
+                        key={task.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, task.id)}
+                        className={`bg-slate-800/80 border border-white/10 rounded-xl p-3 cursor-grab active:cursor-grabbing hover:border-white/20 transition animate-scale-in ${taskOverdue ? 'border-red-500/40 bg-red-500/5' : ''}`}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <span className="font-medium text-sm">{task.name}</span>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <button onClick={() => onEditTask(task)} className="p-1 hover:bg-white/10 rounded transition">
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                            <button onClick={() => { if (confirm('Deletar tarefa?')) onDeleteTask(task.id); }} className="p-1 hover:bg-red-500/20 rounded transition text-red-400">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                        {task.description && (
+                          <p className="text-xs text-slate-400 line-clamp-2 mb-2">{task.description}</p>
+                        )}
+                        <div className="flex items-center justify-between text-xs text-slate-400">
+                          <span className="font-mono">{task.assignee || '-'}</span>
+                          {taskOverdue && <span className="text-red-400 font-semibold">Atrasada</span>}
+                        </div>
+                        <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${taskOverdue ? 'bg-red-500' : 'bg-gradient-to-r from-cyan-500 to-blue-500'}`}
+                            style={{ width: `${task.progress}%` }}
+                          />
+                        </div>
+                        <div className="mt-1.5 text-xs text-slate-500 font-mono">
+                          {new Date(task.start).toLocaleDateString('pt-BR')} - {new Date(task.end).toLocaleDateString('pt-BR')}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // Calendar View Component
+    function CalendarView({ project, onEditTask }) {
+      const [currentMonth, setCurrentMonth] = useState(() => {
+        const now = new Date();
+        return { year: now.getFullYear(), month: now.getMonth() };
+      });
+
+      const daysInMonth = new Date(currentMonth.year, currentMonth.month + 1, 0).getDate();
+      const firstDayOfWeek = new Date(currentMonth.year, currentMonth.month, 1).getDay();
+      const monthName = new Date(currentMonth.year, currentMonth.month).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+      const prevMonth = () => {
+        setCurrentMonth(prev => {
+          const m = prev.month - 1;
+          return m < 0 ? { year: prev.year - 1, month: 11 } : { year: prev.year, month: m };
+        });
+      };
+
+      const nextMonth = () => {
+        setCurrentMonth(prev => {
+          const m = prev.month + 1;
+          return m > 11 ? { year: prev.year + 1, month: 0 } : { year: prev.year, month: m };
+        });
+      };
+
+      const getTasksForDay = (day) => {
+        const date = new Date(currentMonth.year, currentMonth.month, day);
+        date.setHours(0, 0, 0, 0);
+        return project.tasks.filter(task => {
+          const start = new Date(task.start); start.setHours(0, 0, 0, 0);
+          const end = new Date(task.end); end.setHours(0, 0, 0, 0);
+          return date >= start && date <= end;
+        });
+      };
+
+      const today = new Date();
+      const isToday = (day) => today.getFullYear() === currentMonth.year && today.getMonth() === currentMonth.month && today.getDate() === day;
+
+      const getStatusDot = (status) => {
+        switch (status) {
+          case 'completed': return 'bg-emerald-400';
+          case 'in-progress': return 'bg-blue-400';
+          case 'pending': return 'bg-purple-400';
+          default: return 'bg-slate-400';
+        }
+      };
+
+      const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+      const cells = [];
+      for (let i = 0; i < firstDayOfWeek; i++) cells.push(null);
+      for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+      if (project.tasks.length === 0) {
+        return (
+          <div className="glass rounded-2xl p-12 text-center">
+            <h3 className="text-xl font-semibold mb-2">Nenhuma tarefa ainda</h3>
+            <p className="text-slate-400">Adicione tarefas para visualizar o Calendário</p>
+          </div>
+        );
+      }
+
+      return (
+        <div className="glass rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5">
+            <button onClick={prevMonth} className="p-2 hover:bg-white/10 rounded-lg transition">
+              <ChevronRight className="w-5 h-5 rotate-180" />
+            </button>
+            <h3 className="text-lg font-bold capitalize">{monthName}</h3>
+            <button onClick={nextMonth} className="p-2 hover:bg-white/10 rounded-lg transition">
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7">
+            {weekDays.map(d => (
+              <div key={d} className="p-2 text-center text-xs font-semibold text-slate-400 border-b border-white/10 bg-white/5">{d}</div>
+            ))}
+            {cells.map((day, i) => {
+              if (!day) return <div key={`empty-${i}`} className="p-2 min-h-[80px] sm:min-h-[100px] border-b border-r border-white/5 bg-white/[0.02]" />;
+              const dayTasks = getTasksForDay(day);
+              return (
+                <div key={day} className={`p-1.5 sm:p-2 min-h-[80px] sm:min-h-[100px] border-b border-r border-white/5 transition hover:bg-white/5 ${isToday(day) ? 'bg-cyan-500/10 border-cyan-500/20' : ''}`}>
+                  <div className={`text-xs font-mono mb-1 ${isToday(day) ? 'text-cyan-400 font-bold' : 'text-slate-400'}`}>{day}</div>
+                  <div className="space-y-0.5">
+                    {dayTasks.slice(0, 3).map(task => (
+                      <div
+                        key={task.id}
+                        onClick={() => onEditTask(task)}
+                        className={`text-xs px-1.5 py-0.5 rounded cursor-pointer truncate transition hover:brightness-125 ${isOverdue(task) ? 'bg-red-500/20 text-red-300' : 'bg-white/10 text-slate-300'}`}
+                        title={`${task.name} (${task.assignee || 'sem responsável'})`}
+                      >
+                        <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${getStatusDot(task.status)}`}></span>
+                        <span className="hidden sm:inline">{task.name}</span>
+                        <span className="sm:hidden">{task.name.substring(0, 8)}</span>
+                      </div>
+                    ))}
+                    {dayTasks.length > 3 && (
+                      <div className="text-xs text-slate-500 pl-1">+{dayTasks.length - 3} mais</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       );
