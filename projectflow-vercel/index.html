@@ -539,6 +539,8 @@
       const [cloudStatus, setCloudStatus] = useState('connecting');
       const [team, setTeam] = useState([]);
       const [showTeamManager, setShowTeamManager] = useState(false);
+      const [editingProject, setEditingProject] = useState(null);
+      const [projectFilter, setProjectFilter] = useState('');
       const [emailConfig, setEmailConfig] = useState({ serviceId: '', templateId: '', publicKey: '' });
       const [timeLogs, setTimeLogs] = useState([]);
       const [activeTimer, setActiveTimer] = useState(null); // { taskId, projectId, startTime }
@@ -776,17 +778,26 @@
         return { ...currentProject, tasks: filteredTasks };
       }, [currentProject, filteredTasks]);
 
-      const addProject = (name, color) => {
+      const addProject = (projectData) => {
         const newProject = {
           id: Date.now(),
-          name,
-          color,
+          name: projectData.name,
+          client: projectData.client || '',
+          description: projectData.description || '',
+          briefing: projectData.briefing || '',
+          color: projectData.color,
+          deadline: projectData.deadline || '',
+          status: 'active',
           tasks: []
         };
         setProjects(prev => [...prev, newProject]);
         setSelectedProject(newProject.id);
         setShowNewProject(false);
-        showToast(`Projeto "${name}" criado`, 'success');
+        showToast(`Projeto "${projectData.name}" criado`, 'success');
+      };
+
+      const updateProject = (projectId, updates) => {
+        setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...updates } : p));
       };
 
       const deleteProject = (id) => {
@@ -1040,6 +1051,9 @@
                   showNewProject={showNewProject}
                   onToggleNewProject={setShowNewProject}
                   onAddProject={addProject}
+                  onEditProject={setEditingProject}
+                  projectFilter={projectFilter}
+                  setProjectFilter={setProjectFilter}
                 />
               </aside>
 
@@ -1062,6 +1076,9 @@
                   showNewProject={showNewProject}
                   onToggleNewProject={setShowNewProject}
                   onAddProject={addProject}
+                  onEditProject={setEditingProject}
+                  projectFilter={projectFilter}
+                  setProjectFilter={setProjectFilter}
                 />
               </aside>
 
@@ -1073,7 +1090,21 @@
                     <div className="glass rounded-2xl p-4 sm:p-6 mb-6">
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                         <div className="flex-1">
-                          <h2 className="text-2xl sm:text-3xl font-bold mb-2">{currentProject.name}</h2>
+                          <div className="flex items-center gap-3 mb-1">
+                            <h2 className="text-2xl sm:text-3xl font-bold">{currentProject.name}</h2>
+                            <button onClick={() => setEditingProject(currentProject)} className="p-1.5 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white" title="Editar projeto">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          {currentProject.client && (
+                            <div className="text-sm text-slate-400 mb-1">Cliente: <span className="text-slate-300">{currentProject.client}</span></div>
+                          )}
+                          {currentProject.description && (
+                            <div className="text-sm text-slate-400 mb-2">{currentProject.description}</div>
+                          )}
+                          {currentProject.deadline && (
+                            <div className="text-xs text-slate-500 mb-2 font-mono">Prazo: {new Date(currentProject.deadline).toLocaleDateString('pt-BR')}</div>
+                          )}
                           {projectStats && (
                             <div className="flex flex-wrap items-center gap-3 text-sm">
                               <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 font-mono text-slate-300">
@@ -1118,6 +1149,11 @@
                         </button>
                       </div>
                     </div>
+
+                    {/* Briefing section */}
+                    {currentProject.briefing && (
+                      <BriefingDisplay briefing={currentProject.briefing} />
+                    )}
 
                     {/* Search and Filter Bar */}
                     {currentProject.tasks.length > 0 && (
@@ -1260,6 +1296,15 @@
             </div>
           </div>
 
+          {/* Edit Project Modal */}
+          {editingProject && (
+            <EditProjectModal
+              project={editingProject}
+              onSave={(updates) => { updateProject(editingProject.id, updates); setEditingProject(null); showToast('Projeto atualizado', 'success'); }}
+              onClose={() => setEditingProject(null)}
+            />
+          )}
+
           {/* Timesheet Modal */}
           {showTimesheet && (
             <TimesheetPanel
@@ -1295,10 +1340,16 @@
     }
 
     // Project Sidebar Component (extracted for desktop/mobile reuse)
-    function ProjectSidebar({ projects, selectedProject, onSelectProject, onDeleteProject, showNewProject, onToggleNewProject, onAddProject }) {
+    function ProjectSidebar({ projects, selectedProject, onSelectProject, onDeleteProject, showNewProject, onToggleNewProject, onAddProject, onEditProject, projectFilter, setProjectFilter }) {
+      const filtered = projects.filter(p => {
+        if (!projectFilter) return true;
+        const q = projectFilter.toLowerCase();
+        return p.name.toLowerCase().includes(q) || (p.client && p.client.toLowerCase().includes(q));
+      });
+
       return (
         <div className="glass rounded-2xl p-4 sm:p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold">Projetos</h2>
             <button
               onClick={() => onToggleNewProject(true)}
@@ -1308,8 +1359,18 @@
             </button>
           </div>
 
+          {/* Project filter */}
+          {projects.length > 1 && (
+            <div className="relative mb-3">
+              <Search className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input type="text" value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}
+                placeholder="Filtrar projeto ou cliente..."
+                className="w-full pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/50 placeholder-slate-500" />
+            </div>
+          )}
+
           <div className="space-y-2">
-            {projects.map(project => {
+            {filtered.map(project => {
               const taskCount = project.tasks.length;
               const avgProgress = taskCount > 0
                 ? Math.round(project.tasks.reduce((a, t) => a + t.progress, 0) / taskCount)
@@ -1330,45 +1391,43 @@
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <div
-                          className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ background: project.color }}
-                        />
+                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: project.color }} />
                         <h3 className="font-semibold text-sm truncate">{project.name}</h3>
                       </div>
+                      {project.client && (
+                        <div className="text-xs text-slate-500 truncate mb-0.5">{project.client}</div>
+                      )}
                       <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
                         <span>{taskCount} tarefas</span>
                         {overdueCount > 0 && (
                           <span className="text-red-400">{overdueCount} atrasada{overdueCount > 1 ? 's' : ''}</span>
                         )}
                       </div>
-                      {/* Progress bar in sidebar */}
                       {taskCount > 0 && (
                         <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{ width: `${avgProgress}%`, background: project.color }}
-                          />
+                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${avgProgress}%`, background: project.color }} />
                         </div>
                       )}
                     </div>
-                    {projects.length > 1 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm('Deletar projeto?')) {
-                            onDeleteProject(project.id);
-                          }
-                        }}
-                        className="text-slate-400 hover:text-red-400 transition opacity-0 group-hover:opacity-100 flex-shrink-0"
-                      >
-                        <Trash2 className="w-3 h-3" />
+                    <div className="flex flex-col gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition">
+                      <button onClick={(e) => { e.stopPropagation(); onEditProject(project); }}
+                        className="text-slate-400 hover:text-white transition">
+                        <Edit2 className="w-3 h-3" />
                       </button>
-                    )}
+                      {projects.length > 1 && (
+                        <button onClick={(e) => { e.stopPropagation(); if (confirm('Deletar projeto?')) onDeleteProject(project.id); }}
+                          className="text-slate-400 hover:text-red-400 transition">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
             })}
+            {filtered.length === 0 && projectFilter && (
+              <p className="text-xs text-slate-500 text-center py-2">Nenhum projeto encontrado</p>
+            )}
           </div>
 
           {showNewProject && (
@@ -1381,58 +1440,55 @@
       );
     }
 
+    // Color Picker component with presets + spectrum + HEX
+    function ColorPicker({ value, onChange }) {
+      const presets = ['#FF6B35', '#F7931E', '#00C9A7', '#845EC2', '#FF6F91', '#C34A36', '#00D2FC', '#3B82F6', '#10B981', '#F59E0B', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
+      return (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {presets.map(c => (
+              <button key={c} type="button" onClick={() => onChange(c)}
+                className={`w-6 h-6 rounded-full transition ${value === c ? 'ring-2 ring-white scale-110' : 'hover:scale-110'}`}
+                style={{ background: c }} />
+            ))}
+          </div>
+          <div className="flex gap-2 items-center">
+            <input type="color" value={value} onChange={(e) => onChange(e.target.value)}
+              className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" title="Escolher cor personalizada" />
+            <input type="text" value={value} onChange={(e) => { const v = e.target.value; if (/^#[0-9a-fA-F]{0,6}$/.test(v)) onChange(v); }}
+              placeholder="#FF6B35" maxLength={7}
+              className="px-2 py-1 bg-white/10 border border-white/20 rounded text-xs font-mono w-24 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+            <div className="w-5 h-5 rounded-full border border-white/20" style={{ background: value }} />
+          </div>
+        </div>
+      );
+    }
+
     // New Project Form Component
     function NewProjectForm({ onSave, onCancel }) {
-      const [name, setName] = useState('');
-      const [color, setColor] = useState('#FF6B35');
-
-      const colors = ['#FF6B35', '#F7931E', '#00C9A7', '#845EC2', '#FF6F91', '#C34A36', '#00D2FC', '#3B82F6', '#10B981', '#F59E0B'];
+      const [form, setForm] = useState({ name: '', client: '', description: '', color: '#FF6B35', deadline: '' });
 
       const handleSubmit = (e) => {
         e.preventDefault();
-        if (name.trim()) {
-          onSave(name, color);
-          setName('');
+        if (form.name.trim()) {
+          onSave(form);
         }
       };
 
       return (
-        <form onSubmit={handleSubmit} className="mt-4 p-4 bg-white/5 rounded-xl animate-scale-in">
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Nome do projeto"
-            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-            autoFocus
-          />
-          <div className="flex flex-wrap gap-2 mb-3">
-            {colors.map(c => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setColor(c)}
-                className={`w-6 h-6 rounded-full transition ${
-                  color === c ? 'ring-2 ring-white scale-110' : 'hover:scale-110'
-                }`}
-                style={{ background: c }}
-              />
-            ))}
-          </div>
+        <form onSubmit={handleSubmit} className="mt-4 p-4 bg-white/5 rounded-xl animate-scale-in space-y-3">
+          <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Nome do projeto" className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" autoFocus required />
+          <input type="text" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })}
+            placeholder="Nome do cliente" className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+          <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="Descrição breve" className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+          <input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500" title="Prazo do projeto" />
+          <ColorPicker value={form.color} onChange={(c) => setForm({ ...form, color: c })} />
           <div className="flex gap-2">
-            <button
-              type="submit"
-              className="flex-1 px-3 py-2 bg-cyan-500 hover:bg-cyan-600 rounded-lg text-sm font-medium transition"
-            >
-              Criar
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-medium transition"
-            >
-              Cancelar
-            </button>
+            <button type="submit" className="flex-1 px-3 py-2 bg-cyan-500 hover:bg-cyan-600 rounded-lg text-sm font-medium transition">Criar</button>
+            <button type="button" onClick={onCancel} className="px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-medium transition">Cancelar</button>
           </div>
         </form>
       );
@@ -1962,6 +2018,146 @@
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      );
+    }
+
+    // Rich Text Editor using contentEditable
+    function RichTextEditor({ value, onChange, placeholder }) {
+      const editorRef = useRef(null);
+      const isInitialized = useRef(false);
+
+      useEffect(() => {
+        if (editorRef.current && !isInitialized.current) {
+          editorRef.current.innerHTML = value || '';
+          isInitialized.current = true;
+        }
+      }, []);
+
+      const execCmd = (cmd, val) => {
+        document.execCommand(cmd, false, val || null);
+        editorRef.current?.focus();
+        if (onChange) onChange(editorRef.current.innerHTML);
+      };
+
+      const handleInput = () => {
+        if (onChange) onChange(editorRef.current.innerHTML);
+      };
+
+      const btnClass = "p-1.5 hover:bg-white/20 rounded transition text-slate-300 hover:text-white text-xs";
+      const activeBtnClass = (cmd) => document.queryCommandState(cmd) ? 'bg-white/20 text-white' : '';
+
+      return (
+        <div className="border border-white/20 rounded-lg overflow-hidden">
+          <div className="flex flex-wrap gap-0.5 p-1.5 bg-white/5 border-b border-white/10">
+            <button type="button" onClick={() => execCmd('bold')} className={`${btnClass} font-bold`} title="Negrito">B</button>
+            <button type="button" onClick={() => execCmd('italic')} className={`${btnClass} italic`} title="Itálico">I</button>
+            <button type="button" onClick={() => execCmd('underline')} className={`${btnClass} underline`} title="Sublinhado">U</button>
+            <span className="w-px bg-white/10 mx-1" />
+            <button type="button" onClick={() => execCmd('formatBlock', 'H3')} className={btnClass} title="Título">H</button>
+            <button type="button" onClick={() => execCmd('insertUnorderedList')} className={btnClass} title="Lista">• Lista</button>
+            <button type="button" onClick={() => execCmd('insertOrderedList')} className={btnClass} title="Lista numerada">1. Lista</button>
+            <span className="w-px bg-white/10 mx-1" />
+            <button type="button" onClick={() => execCmd('justifyLeft')} className={btnClass} title="Alinhar esquerda">←</button>
+            <button type="button" onClick={() => execCmd('justifyCenter')} className={btnClass} title="Centralizar">↔</button>
+            <button type="button" onClick={() => execCmd('removeFormat')} className={`${btnClass} text-slate-500`} title="Limpar formatação">✕</button>
+          </div>
+          <div
+            ref={editorRef}
+            contentEditable
+            onInput={handleInput}
+            className="min-h-[120px] max-h-[300px] overflow-y-auto p-3 text-sm focus:outline-none bg-white/5"
+            style={{ lineHeight: '1.6' }}
+            data-placeholder={placeholder}
+          />
+        </div>
+      );
+    }
+
+    // Briefing Display Component (collapsible)
+    function BriefingDisplay({ briefing }) {
+      const [open, setOpen] = useState(false);
+      if (!briefing) return null;
+      return (
+        <div className="glass rounded-xl mb-4 overflow-hidden">
+          <button onClick={() => setOpen(!open)}
+            className="w-full flex items-center justify-between p-3 text-sm font-medium text-slate-300 hover:bg-white/5 transition">
+            <span className="flex items-center gap-2">
+              <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+              Briefing do Projeto
+            </span>
+            <ChevronRight className={`w-4 h-4 transition-transform ${open ? 'rotate-90' : ''}`} />
+          </button>
+          {open && (
+            <div className="px-4 pb-4 text-sm text-slate-300 prose-sm animate-fade-in"
+              style={{ lineHeight: '1.6' }}
+              dangerouslySetInnerHTML={{ __html: briefing }}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // Edit Project Modal
+    function EditProjectModal({ project, onSave, onClose }) {
+      const [form, setForm] = useState({
+        name: project.name || '',
+        client: project.client || '',
+        description: project.description || '',
+        briefing: project.briefing || '',
+        color: project.color || '#FF6B35',
+        deadline: project.deadline || '',
+      });
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (form.name.trim()) onSave(form);
+      };
+
+      return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+          <div className="glass rounded-2xl p-6 max-w-xl w-full mx-4 animate-scale-in max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold">Editar Projeto</h3>
+              <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-lg transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Nome do Projeto</label>
+                <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500" required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Cliente</label>
+                <input type="text" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })}
+                  placeholder="Nome do cliente" className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Descrição</label>
+                <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Descrição breve do projeto" className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Prazo</label>
+                <input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Cor</label>
+                <ColorPicker value={form.color} onChange={(c) => setForm({ ...form, color: c })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Briefing</label>
+                <RichTextEditor value={form.briefing} onChange={(html) => setForm({ ...form, briefing: html })} placeholder="Escreva o briefing do projeto aqui..." />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="submit" className="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg font-medium hover:shadow-lg transition">Salvar</button>
+                <button type="button" onClick={onClose} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg font-medium transition">Cancelar</button>
+              </div>
+            </form>
           </div>
         </div>
       );
