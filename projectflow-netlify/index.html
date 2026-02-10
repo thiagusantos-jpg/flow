@@ -15,6 +15,9 @@
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <!-- EmailJS -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
@@ -449,6 +452,35 @@
       }
     };
 
+    const saveEmailConfigToFirebase = (config) => {
+      try {
+        db.ref('emailConfig').set(config);
+      } catch (e) {
+        console.error('Erro ao salvar config email no Firebase:', e);
+      }
+    };
+
+    // Send email notification via EmailJS
+    const sendTaskEmail = (emailConfig, member, task, projectName) => {
+      if (!emailConfig || !emailConfig.serviceId || !emailConfig.templateId || !emailConfig.publicKey) return false;
+      try {
+        emailjs.send(emailConfig.serviceId, emailConfig.templateId, {
+          to_name: member.name,
+          to_email: member.email,
+          task_name: task.name,
+          task_description: task.description || 'Sem descrição',
+          task_start: new Date(task.start).toLocaleDateString('pt-BR'),
+          task_end: new Date(task.end).toLocaleDateString('pt-BR'),
+          project_name: projectName,
+          from_name: 'ProjectFlow',
+        }, emailConfig.publicKey);
+        return true;
+      } catch (e) {
+        console.error('Erro ao enviar email:', e);
+        return false;
+      }
+    };
+
     // Main App Component
     function ProjectManager() {
       const [projects, setProjects] = useState([]);
@@ -464,6 +496,7 @@
       const [cloudStatus, setCloudStatus] = useState('connecting');
       const [team, setTeam] = useState([]);
       const [showTeamManager, setShowTeamManager] = useState(false);
+      const [emailConfig, setEmailConfig] = useState({ serviceId: '', templateId: '', publicKey: '' });
       const fileInputRef = useRef(null);
       const isFirstLoad = useRef(true);
       const skipNextSave = useRef(false);
@@ -567,10 +600,19 @@
         };
         teamRef.on('value', handleTeamData);
 
+        // Email config sync
+        const emailRef = db.ref('emailConfig');
+        const handleEmailConfig = (snapshot) => {
+          const data = snapshot.val();
+          if (data) setEmailConfig(data);
+        };
+        emailRef.on('value', handleEmailConfig);
+
         return () => {
           projectsRef.off('value', handleData);
           connRef.off('value', connHandler);
           teamRef.off('value', handleTeamData);
+          emailRef.off('value', handleEmailConfig);
         };
       }, []);
 
@@ -658,6 +700,16 @@
         ));
         setShowNewTask(false);
         showToast(`Tarefa "${taskData.name}" criada`, 'success');
+
+        // Send email notification to assignee
+        if (taskData.assignee && team.length > 0) {
+          const member = team.find(m => m.name === taskData.assignee);
+          if (member && member.email) {
+            const projectName = currentProject ? currentProject.name : '';
+            const sent = sendTaskEmail(emailConfig, member, { ...taskData, ...newTask }, projectName);
+            if (sent) showToast(`Email enviado para ${member.name}`, 'info');
+          }
+        }
       };
 
       const updateTask = (taskId, updates) => {
@@ -1056,6 +1108,8 @@
             <TeamManager
               team={team}
               setTeam={setTeam}
+              emailConfig={emailConfig}
+              setEmailConfig={(config) => { setEmailConfig(config); saveEmailConfigToFirebase(config); }}
               onClose={() => setShowTeamManager(false)}
               showToast={showToast}
             />
@@ -1728,7 +1782,7 @@
     }
 
     // Team Manager Component
-    function TeamManager({ team, setTeam, onClose, showToast }) {
+    function TeamManager({ team, setTeam, emailConfig, setEmailConfig, onClose, showToast }) {
       const [newName, setNewName] = useState('');
       const [newEmail, setNewEmail] = useState('');
       const [newColor, setNewColor] = useState('#06b6d4');
@@ -1821,6 +1875,43 @@
                 ))}
               </div>
             )}
+
+            {/* EmailJS Config */}
+            <div className="mt-6 p-4 bg-white/5 rounded-xl space-y-3 border border-white/10">
+              <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                Notificações por Email (EmailJS)
+                <span className={`px-1.5 py-0.5 rounded text-xs ${emailConfig.serviceId && emailConfig.templateId && emailConfig.publicKey ? 'bg-emerald-500/20 text-emerald-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                  {emailConfig.serviceId && emailConfig.templateId && emailConfig.publicKey ? 'Configurado' : 'Pendente'}
+                </span>
+              </h4>
+              <p className="text-xs text-slate-400">
+                Crie uma conta gratuita em <span className="text-cyan-400">emailjs.com</span> para enviar emails automáticos quando tarefas forem atribuídas.
+              </p>
+              <input
+                type="text"
+                value={emailConfig.serviceId || ''}
+                onChange={(e) => setEmailConfig({ ...emailConfig, serviceId: e.target.value })}
+                placeholder="Service ID (ex: service_xxxxxxx)"
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+              <input
+                type="text"
+                value={emailConfig.templateId || ''}
+                onChange={(e) => setEmailConfig({ ...emailConfig, templateId: e.target.value })}
+                placeholder="Template ID (ex: template_xxxxxxx)"
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+              <input
+                type="text"
+                value={emailConfig.publicKey || ''}
+                onChange={(e) => setEmailConfig({ ...emailConfig, publicKey: e.target.value })}
+                placeholder="Public Key (ex: xXxXxXxXxXxXx)"
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+              <p className="text-xs text-slate-500">
+                No template use: {'{{to_name}}, {{to_email}}, {{task_name}}, {{task_description}}, {{task_start}}, {{task_end}}, {{project_name}}'}
+              </p>
+            </div>
           </div>
         </div>
       );
