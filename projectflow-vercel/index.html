@@ -5,6 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ProjectFlow - Gestão de Projetos</title>
 
+  <!-- Favicon SVG -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230f172a'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-size='18'>🚀</text></svg>">
+
+  <!-- PWA Meta Tags -->
+  <meta name="description" content="ProjectFlow - Gestão inteligente de projetos com Kanban, Gantt, Calendar e Timesheet">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ProjectFlow">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="msapplication-TileColor" content="#0f172a">
+
   <!-- React & ReactDOM -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -432,6 +444,25 @@
       );
     }
 
+    // Custom confirm modal (replaces browser confirm)
+    function ConfirmModal({ message, onConfirm, onCancel }) {
+      return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] animate-fade-in" onClick={onCancel}>
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-sm mx-4 shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-500/20 rounded-xl"><AlertTriangle className="w-5 h-5 text-red-400" /></div>
+              <h3 className="text-lg font-semibold text-white">Confirmar ação</h3>
+            </div>
+            <p className="text-slate-300 mb-6">{message}</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={onCancel} className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium transition">Cancelar</button>
+              <button onClick={onConfirm} className="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition">Confirmar</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     // Toast notification component
     function Toast({ message, type, onClose }) {
       useEffect(() => {
@@ -586,6 +617,7 @@
       const [statusFilter, setStatusFilter] = useState('all');
       const [sidebarOpen, setSidebarOpen] = useState(false);
       const [toast, setToast] = useState(null);
+      const [confirmModal, setConfirmModal] = useState(null);
       const [cloudStatus, setCloudStatus] = useState('connecting');
       const [team, setTeam] = useState([]);
       const [showTeamManager, setShowTeamManager] = useState(false);
@@ -597,6 +629,7 @@
       const [timerTick, setTimerTick] = useState(0);
       const [showTimesheet, setShowTimesheet] = useState(false);
       const fileInputRef = useRef(null);
+      const showConfirm = (message, onConfirm) => setConfirmModal({ message, onConfirm });
       const isFirstLoad = useRef(true);
       const skipNextSave = useRef(false);
       const skipNextTeamSave = useRef(false);
@@ -1109,6 +1142,7 @@
                   onEditProject={setEditingProject}
                   projectFilter={projectFilter}
                   setProjectFilter={setProjectFilter}
+                  showConfirm={showConfirm}
                 />
               </aside>
 
@@ -1134,6 +1168,7 @@
                   onEditProject={setEditingProject}
                   projectFilter={projectFilter}
                   setProjectFilter={setProjectFilter}
+                  showConfirm={showConfirm}
                 />
               </aside>
 
@@ -1281,6 +1316,7 @@
                         activeTimer={activeTimer}
                         onStartTimer={startTimer}
                         onStopTimer={stopTimer}
+                        showConfirm={showConfirm}
                       />
                     )}
                     {view === 'kanban' && (
@@ -1292,6 +1328,7 @@
                         activeTimer={activeTimer}
                         onStartTimer={startTimer}
                         onStopTimer={stopTimer}
+                        showConfirm={showConfirm}
                       />
                     )}
                     {view === 'calendar' && (
@@ -1369,6 +1406,7 @@
               onAddLog={addManualTimeLog}
               onDeleteLog={deleteTimeLog}
               onClose={() => setShowTimesheet(false)}
+              showConfirm={showConfirm}
             />
           )}
 
@@ -1381,6 +1419,7 @@
               setEmailConfig={(config) => { setEmailConfig(config); saveEmailConfigToFirebase(config); }}
               onClose={() => setShowTeamManager(false)}
               showToast={showToast}
+              showConfirm={showConfirm}
             />
           )}
 
@@ -1390,12 +1429,13 @@
           </div>
 
           {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+          {confirmModal && <ConfirmModal message={confirmModal.message} onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(null); }} onCancel={() => setConfirmModal(null)} />}
         </div>
       );
     }
 
     // Project Sidebar Component (extracted for desktop/mobile reuse)
-    function ProjectSidebar({ projects, selectedProject, onSelectProject, onDeleteProject, showNewProject, onToggleNewProject, onAddProject, onEditProject, projectFilter, setProjectFilter }) {
+    function ProjectSidebar({ projects, selectedProject, onSelectProject, onDeleteProject, showNewProject, onToggleNewProject, onAddProject, onEditProject, projectFilter, setProjectFilter, showConfirm }) {
       const filtered = projects.filter(p => {
         if (!projectFilter) return true;
         const q = projectFilter.toLowerCase();
@@ -1470,7 +1510,7 @@
                         <Edit2 className="w-3 h-3" />
                       </button>
                       {projects.length > 1 && (
-                        <button onClick={(e) => { e.stopPropagation(); if (confirm('Deletar projeto?')) onDeleteProject(project.id); }}
+                        <button onClick={(e) => { e.stopPropagation(); showConfirm('Deletar projeto e todas as suas tarefas?', () => onDeleteProject(project.id)); }}
                           className="text-slate-400 hover:text-red-400 transition">
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -1840,11 +1880,7 @@
                             <Edit2 className="w-3 h-3" />
                           </button>
                           <button
-                            onClick={() => {
-                              if (confirm('Deletar tarefa?')) {
-                                onDeleteTask(task.id);
-                              }
-                            }}
+                            onClick={() => showConfirm('Deletar tarefa?', () => onDeleteTask(task.id))}
                             className="p-1 hover:bg-red-500/20 rounded transition text-red-400"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -1925,7 +1961,7 @@
     }
 
     // List View Component
-    function ListView({ project, onUpdateTask, onDeleteTask, onEditTask, activeTimer, onStartTimer, onStopTimer }) {
+    function ListView({ project, onUpdateTask, onDeleteTask, onEditTask, activeTimer, onStartTimer, onStopTimer, showConfirm }) {
       const getStatusLabel = (status) => {
         switch (status) {
           case 'completed': return 'Concluída';
@@ -2056,11 +2092,7 @@
                             <ChevronRight className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => {
-                              if (confirm('Deletar tarefa?')) {
-                                onDeleteTask(task.id);
-                              }
-                            }}
+                            onClick={() => showConfirm('Deletar tarefa?', () => onDeleteTask(task.id))}
                             className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition"
                             title="Deletar tarefa"
                           >
@@ -2219,7 +2251,7 @@
     }
 
     // Timesheet Panel Component
-    function TimesheetPanel({ timeLogs, projects, team, onAddLog, onDeleteLog, onClose }) {
+    function TimesheetPanel({ timeLogs, projects, team, onAddLog, onDeleteLog, onClose, showConfirm }) {
       const [tab, setTab] = useState('logs'); // logs, byProject, byMember
       const [manualForm, setManualForm] = useState({ projectId: '', taskId: '', assignee: '', hours: '', minutes: '', date: new Date().toISOString().split('T')[0] });
       const [showManual, setShowManual] = useState(false);
@@ -2359,7 +2391,7 @@
                         </div>
                       </div>
                       <span className="font-mono text-sm text-cyan-400 font-bold flex-shrink-0">{formatHours(log.seconds)}</span>
-                      <button onClick={() => { if (confirm('Remover registro?')) onDeleteLog(log.id); }}
+                      <button onClick={() => showConfirm('Remover registro de tempo?', () => onDeleteLog(log.id))}
                         className="p-1 text-slate-400 hover:text-red-400 transition opacity-0 group-hover:opacity-100 flex-shrink-0">
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -2437,7 +2469,7 @@
     }
 
     // Team Manager Component
-    function TeamManager({ team, setTeam, emailConfig, setEmailConfig, onClose, showToast }) {
+    function TeamManager({ team, setTeam, emailConfig, setEmailConfig, onClose, showToast, showConfirm }) {
       const [newName, setNewName] = useState('');
       const [newEmail, setNewEmail] = useState('');
       const [newColor, setNewColor] = useState('#06b6d4');
@@ -2521,7 +2553,7 @@
                       <div className="text-xs text-slate-400 truncate">{m.email}</div>
                     </div>
                     <button
-                      onClick={() => { if (confirm(`Remover ${m.name}?`)) removeMember(m.id); }}
+                      onClick={() => showConfirm(`Remover ${m.name} da equipe?`, () => removeMember(m.id))}
                       className="p-1 text-slate-400 hover:text-red-400 transition opacity-0 group-hover:opacity-100"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -2573,7 +2605,7 @@
     }
 
     // Kanban View Component
-    function KanbanView({ project, onUpdateTask, onDeleteTask, onEditTask, activeTimer, onStartTimer, onStopTimer }) {
+    function KanbanView({ project, onUpdateTask, onDeleteTask, onEditTask, activeTimer, onStartTimer, onStopTimer, showConfirm }) {
       const columns = [
         { status: 'pending', label: 'Pendente', color: 'purple', bg: 'bg-purple-500/10', border: 'border-purple-500/30', badge: 'bg-purple-500/20 text-purple-400' },
         { status: 'in-progress', label: 'Em Progresso', color: 'blue', bg: 'bg-blue-500/10', border: 'border-blue-500/30', badge: 'bg-blue-500/20 text-blue-400' },
@@ -2656,7 +2688,7 @@
                             <button onClick={() => onEditTask(task)} className="p-1 hover:bg-white/10 rounded transition">
                               <Edit2 className="w-3 h-3" />
                             </button>
-                            <button onClick={() => { if (confirm('Deletar tarefa?')) onDeleteTask(task.id); }} className="p-1 hover:bg-red-500/20 rounded transition text-red-400">
+                            <button onClick={() => showConfirm('Deletar tarefa?', () => onDeleteTask(task.id))} className="p-1 hover:bg-red-500/20 rounded transition text-red-400">
                               <Trash2 className="w-3 h-3" />
                             </button>
                           </div>
