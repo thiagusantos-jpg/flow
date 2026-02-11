@@ -1007,6 +1007,7 @@
                 <button
                   onClick={() => setSidebarOpen(true)}
                   className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition"
+                  aria-label="Abrir menu de projetos"
                 >
                   <Menu className="w-5 h-5" />
                 </button>
@@ -1033,7 +1034,7 @@
                 <button
                   onClick={() => setShowTeamManager(true)}
                   className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg transition text-slate-300 hover:text-white text-xs font-medium"
-                  title="Gerenciar equipe"
+                  title="Gerenciar equipe" aria-label="Gerenciar equipe"
                 >
                   <Users className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Equipe ({team.length})</span>
@@ -1043,7 +1044,7 @@
                 <button
                   onClick={() => setShowTimesheet(true)}
                   className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg transition text-slate-300 hover:text-white text-xs font-medium"
-                  title="Timesheet - Controle de horas"
+                  title="Timesheet - Controle de horas" aria-label="Timesheet"
                 >
                   <Clock className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Timesheet</span>
@@ -1056,14 +1057,14 @@
                 <div className="hidden sm:flex gap-1">
                   <button
                     onClick={exportData}
-                    title="Exportar backup (JSON)"
+                    title="Exportar backup (JSON)" aria-label="Exportar backup"
                     className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition text-slate-300 hover:text-white"
                   >
                     <Download className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    title="Importar backup (JSON)"
+                    title="Importar backup (JSON)" aria-label="Importar backup"
                     className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition text-slate-300 hover:text-white"
                   >
                     <Upload className="w-4 h-4" />
@@ -1077,7 +1078,7 @@
                   />
                 </div>
 
-                <div className="flex gap-1 bg-white/5 rounded-lg p-1">
+                <nav className="flex gap-1 bg-white/5 rounded-lg p-1" aria-label="Visualizações do projeto">
                   {[
                     { key: 'gantt', label: 'Gantt' },
                     { key: 'list', label: 'Lista' },
@@ -1096,7 +1097,7 @@
                       {v.label}
                     </button>
                   ))}
-                </div>
+                </nav>
               </div>
             </div>
           </header>
@@ -1153,7 +1154,7 @@
               <aside className={`sidebar-panel lg:hidden ${sidebarOpen ? 'open' : ''} bg-slate-900 p-4`}>
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-lg font-bold">Projetos</h2>
-                  <button onClick={() => setSidebarOpen(false)} className="p-2 hover:bg-white/10 rounded-lg">
+                  <button onClick={() => setSidebarOpen(false)} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Fechar menu">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
@@ -1182,7 +1183,7 @@
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-1">
                             <h2 className="text-2xl sm:text-3xl font-bold">{currentProject.name}</h2>
-                            <button onClick={() => setEditingProject(currentProject)} className="p-1.5 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white" title="Editar projeto">
+                            <button onClick={() => setEditingProject(currentProject)} className="p-1.5 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white" title="Editar projeto" aria-label="Editar projeto">
                               <Edit2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -1248,13 +1249,14 @@
                     {/* Search and Filter Bar */}
                     {currentProject.tasks.length > 0 && (
                       <div className="glass rounded-xl p-3 mb-4 flex flex-col sm:flex-row gap-3">
-                        <div className="relative flex-1">
+                        <div className="relative flex-1" role="search">
                           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                           <input
                             type="text"
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
                             placeholder="Buscar tarefas, responsáveis..."
+                            aria-label="Buscar tarefas"
                             className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 placeholder-slate-500"
                           />
                           {searchQuery && (
@@ -1784,9 +1786,11 @@
       if (!dateRange || project.tasks.length === 0) {
         return (
           <div className="glass rounded-2xl p-12 text-center">
-            <Calendar className="w-16 h-16 mx-auto mb-4 text-slate-600" />
+            <div className="w-20 h-20 mx-auto mb-4 bg-cyan-500/10 rounded-2xl flex items-center justify-center">
+              <Calendar className="w-10 h-10 text-cyan-400" />
+            </div>
             <h3 className="text-xl font-semibold mb-2">Nenhuma tarefa ainda</h3>
-            <p className="text-slate-400">Adicione tarefas para visualizar o Gantt</p>
+            <p className="text-slate-400 text-sm">Use o botão <strong>+ Nova Tarefa</strong> acima para criar sua primeira tarefa e visualizar o Gantt</p>
           </div>
         );
       }
@@ -1983,8 +1987,11 @@
       if (project.tasks.length === 0) {
         return (
           <div className="glass rounded-2xl p-12 text-center">
+            <div className="w-20 h-20 mx-auto mb-4 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
+              <Plus className="w-10 h-10 text-emerald-400" />
+            </div>
             <h3 className="text-xl font-semibold mb-2">Nenhuma tarefa ainda</h3>
-            <p className="text-slate-400">Adicione tarefas ao projeto</p>
+            <p className="text-slate-400 text-sm">Use o botão <strong>+ Nova Tarefa</strong> acima para adicionar tarefas a este projeto</p>
           </div>
         );
       }
@@ -2378,7 +2385,7 @@
             {/* Logs tab */}
             {tab === 'logs' && (
               timeLogs.length === 0 ? (
-                <p className="text-center text-slate-400 text-sm py-8">Nenhum registro de horas ainda. Use o botão ▶ nas tarefas para iniciar o timer.</p>
+                <div className="text-center py-8"><div className="w-16 h-16 mx-auto mb-3 bg-cyan-500/10 rounded-2xl flex items-center justify-center"><Clock className="w-8 h-8 text-cyan-400" /></div><p className="text-slate-400 text-sm">Nenhum registro de horas ainda.</p><p className="text-slate-500 text-xs mt-1">Use o botao &#9654; nas tarefas para iniciar o timer</p></div>
               ) : (
                 <div className="space-y-2">
                   {[...timeLogs].reverse().map(log => (
@@ -2540,7 +2547,7 @@
 
             {/* Team list */}
             {team.length === 0 ? (
-              <p className="text-center text-slate-400 text-sm py-4">Nenhum membro cadastrado</p>
+              <div className="text-center py-6"><div className="w-16 h-16 mx-auto mb-3 bg-emerald-500/10 rounded-2xl flex items-center justify-center"><Users className="w-8 h-8 text-emerald-400" /></div><p className="text-slate-400 text-sm">Nenhum membro cadastrado</p><p className="text-slate-500 text-xs mt-1">Adicione membros usando o formulario acima</p></div>
             ) : (
               <div className="space-y-2">
                 {team.map(m => (
@@ -2641,8 +2648,11 @@
       if (project.tasks.length === 0) {
         return (
           <div className="glass rounded-2xl p-12 text-center">
+            <div className="w-20 h-20 mx-auto mb-4 bg-blue-500/10 rounded-2xl flex items-center justify-center">
+              <GripVertical className="w-10 h-10 text-blue-400" />
+            </div>
             <h3 className="text-xl font-semibold mb-2">Nenhuma tarefa ainda</h3>
-            <p className="text-slate-400">Adicione tarefas para visualizar o Kanban</p>
+            <p className="text-slate-400 text-sm">Use o botão <strong>+ Nova Tarefa</strong> acima para criar tarefas e visualizar o Kanban</p>
           </div>
         );
       }
@@ -2775,8 +2785,11 @@
       if (project.tasks.length === 0) {
         return (
           <div className="glass rounded-2xl p-12 text-center">
+            <div className="w-20 h-20 mx-auto mb-4 bg-purple-500/10 rounded-2xl flex items-center justify-center">
+              <Calendar className="w-10 h-10 text-purple-400" />
+            </div>
             <h3 className="text-xl font-semibold mb-2">Nenhuma tarefa ainda</h3>
-            <p className="text-slate-400">Adicione tarefas para visualizar o Calendário</p>
+            <p className="text-slate-400 text-sm">Use o botão <strong>+ Nova Tarefa</strong> acima para criar tarefas e visualizar o Calendário</p>
           </div>
         );
       }
