@@ -418,6 +418,18 @@
       return diffDays >= 0 && diffDays <= 2;
     };
 
+    const priorityConfig = {
+      high: { label: 'Alta', icon: '🔴', class: 'bg-red-500/15 text-red-400' },
+      medium: { label: 'Média', icon: '🟡', class: 'bg-amber-500/15 text-amber-400' },
+      low: { label: 'Baixa', icon: '🟢', class: 'bg-emerald-500/15 text-emerald-400' },
+    };
+
+    function PriorityBadge({ priority }) {
+      const p = priorityConfig[priority];
+      if (!p) return null;
+      return <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${p.class}`}>{p.icon} {p.label}</span>;
+    }
+
     // Loading Skeleton Component
     function LoadingSkeleton() {
       return (
@@ -783,6 +795,28 @@
         const interval = setInterval(() => setTimerTick(t => t + 1), 1000);
         return () => clearInterval(interval);
       }, [activeTimer]);
+
+      // Keyboard shortcuts
+      useEffect(() => {
+        const handler = (e) => {
+          // Skip if user is typing in an input/textarea/contenteditable
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+          const key = e.key.toLowerCase();
+          if (key === '1') setView('gantt');
+          else if (key === '2') setView('list');
+          else if (key === '3') setView('kanban');
+          else if (key === '4') setView('calendar');
+          else if (key === 'n' && !e.ctrlKey && !e.metaKey) setShowNewTask(true);
+          else if (key === 'e') setShowTeamManager(v => !v);
+          else if (key === 't') setShowTimesheet(v => !v);
+          else if (key === '?') {
+            e.preventDefault();
+            showToast('Atalhos: 1-4=Views | N=Nova tarefa | E=Equipe | T=Timesheet', 'info');
+          }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+      }, []);
 
       // Save time logs to Firebase
       useEffect(() => {
@@ -1237,15 +1271,16 @@
                           {/* Overall progress bar */}
                           {projectStats && (
                             <div className="mt-4 flex items-center gap-3">
-                              <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                              <div className="flex-1 h-2.5 bg-white/10 rounded-full overflow-hidden">
                                 <div
-                                  className="h-full rounded-full transition-all duration-500"
+                                  className="h-full rounded-full transition-all duration-700 ease-out"
                                   style={{
                                     width: `${projectStats.avgProgress}%`,
-                                    background: `linear-gradient(90deg, #06b6d4, #3b82f6)`
+                                    background: projectStats.avgProgress >= 80 ? 'linear-gradient(90deg, #10b981, #34d399)' : projectStats.avgProgress >= 40 ? 'linear-gradient(90deg, #06b6d4, #3b82f6)' : 'linear-gradient(90deg, #f59e0b, #f97316)'
                                   }}
                                 />
                               </div>
+                              <span className="text-xs font-mono text-slate-400 w-10 text-right">{projectStats.avgProgress}%</span>
                             </div>
                           )}
                         </div>
@@ -1621,6 +1656,7 @@
         assignee: '',
         status: 'pending',
         progress: 0,
+        priority: 'medium',
         dependencies: []
       });
 
@@ -1707,6 +1743,28 @@
                 placeholder="Cadastre membros na Equipe primeiro"
               />
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Prioridade</label>
+            <div className="flex gap-2">
+              {[
+                { value: 'low', label: 'Baixa', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: '🟢' },
+                { value: 'medium', label: 'Média', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', icon: '🟡' },
+                { value: 'high', label: 'Alta', color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: '🔴' },
+              ].map(p => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, priority: p.value })}
+                  className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition ${
+                    formData.priority === p.value ? p.color + ' border' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                  }`}
+                >
+                  {p.icon} {p.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Status and Progress - shown in edit mode */}
@@ -1890,6 +1948,7 @@
                             </div>
                           )}
                           <div className="flex items-center gap-2 text-xs text-slate-400">
+                            {task.priority && <PriorityBadge priority={task.priority} />}
                             {task.assignee && <span className="font-mono">{task.assignee}</span>}
                             <span className="px-2 py-0.5 rounded-full bg-white/10 font-mono">
                               {task.progress}%
@@ -2026,6 +2085,7 @@
                   <th className="text-left p-4 text-sm font-semibold text-slate-400 hidden lg:table-cell">DESCRIÇÃO</th>
                   <th className="text-left p-4 text-sm font-semibold text-slate-400">STATUS</th>
                   <th className="text-left p-4 text-sm font-semibold text-slate-400">RESPONSÁVEL</th>
+                  <th className="text-left p-4 text-sm font-semibold text-slate-400">PRIORIDADE</th>
                   <th className="text-left p-4 text-sm font-semibold text-slate-400">PERÍODO</th>
                   <th className="text-left p-4 text-sm font-semibold text-slate-400">PROGRESSO</th>
                   <th className="text-right p-4 text-sm font-semibold text-slate-400">AÇÕES</th>
@@ -2061,6 +2121,9 @@
                       </td>
                       <td className="p-4">
                         <span className="text-sm font-mono text-slate-300">{task.assignee || '-'}</span>
+                      </td>
+                      <td className="p-4">
+                        <PriorityBadge priority={task.priority || 'medium'} />
                       </td>
                       <td className="p-4">
                         <div className="text-sm font-mono text-slate-300 whitespace-nowrap">
@@ -2727,7 +2790,10 @@
                           <p className="text-xs text-slate-400 line-clamp-2 mb-2">{task.description}</p>
                         )}
                         <div className="flex items-center justify-between text-xs text-slate-400">
-                          <span className="font-mono">{task.assignee || '-'}</span>
+                          <div className="flex items-center gap-2">
+                            {task.priority && <PriorityBadge priority={task.priority} />}
+                            <span className="font-mono">{task.assignee || '-'}</span>
+                          </div>
                           {taskOverdue && <span className="text-red-400 font-semibold">Atrasada</span>}
                         </div>
                         <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
