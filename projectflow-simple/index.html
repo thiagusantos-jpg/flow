@@ -5,6 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ProjectFlow - Gestão de Projetos</title>
 
+  <!-- Favicon SVG -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230f172a'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-size='18'>🚀</text></svg>">
+
+  <!-- PWA Meta Tags -->
+  <meta name="description" content="ProjectFlow - Gestão inteligente de projetos com Kanban, Gantt, Calendar e Timesheet">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ProjectFlow">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="msapplication-TileColor" content="#0f172a">
+
   <!-- React & ReactDOM -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -140,6 +152,17 @@
 
     .overdue-pulse {
       animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+      border-radius: 8px;
     }
 
     /* Custom scrollbar */
@@ -382,6 +405,64 @@
       return diffDays >= 0 && diffDays <= 2;
     };
 
+    // Loading Skeleton Component
+    function LoadingSkeleton() {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+          <div className="glass border-b border-white/10 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between max-w-7xl mx-auto">
+            <div className="flex items-center gap-4">
+              <div className="skeleton w-32 h-8" />
+              <div className="skeleton w-24 h-4" />
+            </div>
+            <div className="flex gap-2">
+              <div className="skeleton w-20 h-8 rounded-lg" />
+              <div className="skeleton w-20 h-8 rounded-lg" />
+            </div>
+          </div>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+            <div className="flex gap-6">
+              <div className="hidden lg:block w-72 flex-shrink-0 space-y-3">
+                <div className="skeleton h-10 w-full rounded-xl" />
+                <div className="skeleton h-20 w-full rounded-xl" />
+                <div className="skeleton h-20 w-full rounded-xl" />
+                <div className="skeleton h-20 w-full rounded-xl" />
+              </div>
+              <div className="flex-1 space-y-4">
+                <div className="skeleton h-32 w-full rounded-2xl" />
+                <div className="skeleton h-12 w-full rounded-xl" />
+                <div className="skeleton h-64 w-full rounded-2xl" />
+              </div>
+            </div>
+          </div>
+          <div className="fixed inset-0 flex items-center justify-center pointer-events-none">
+            <div className="text-center animate-fade-in">
+              <Cloud className="w-8 h-8 text-cyan-400 mx-auto mb-2 animate-pulse" />
+              <p className="text-sm text-slate-400">Conectando ao servidor...</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Custom confirm modal (replaces browser confirm)
+    function ConfirmModal({ message, onConfirm, onCancel }) {
+      return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] animate-fade-in" onClick={onCancel}>
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-sm mx-4 shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-500/20 rounded-xl"><AlertTriangle className="w-5 h-5 text-red-400" /></div>
+              <h3 className="text-lg font-semibold text-white">Confirmar ação</h3>
+            </div>
+            <p className="text-slate-300 mb-6">{message}</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={onCancel} className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium transition">Cancelar</button>
+              <button onClick={onConfirm} className="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition">Confirmar</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     // Toast notification component
     function Toast({ message, type, onClose }) {
       useEffect(() => {
@@ -536,6 +617,7 @@
       const [statusFilter, setStatusFilter] = useState('all');
       const [sidebarOpen, setSidebarOpen] = useState(false);
       const [toast, setToast] = useState(null);
+      const [confirmModal, setConfirmModal] = useState(null);
       const [cloudStatus, setCloudStatus] = useState('connecting');
       const [team, setTeam] = useState([]);
       const [showTeamManager, setShowTeamManager] = useState(false);
@@ -547,6 +629,7 @@
       const [timerTick, setTimerTick] = useState(0);
       const [showTimesheet, setShowTimesheet] = useState(false);
       const fileInputRef = useRef(null);
+      const showConfirm = (message, onConfirm) => setConfirmModal({ message, onConfirm });
       const isFirstLoad = useRef(true);
       const skipNextSave = useRef(false);
       const skipNextTeamSave = useRef(false);
@@ -909,6 +992,11 @@
         return { total, completed, inProgress, pending, overdue, avgProgress };
       }, [currentProject]);
 
+      // Show loading skeleton while Firebase connects
+      if (isFirstLoad.current && projects.length === 0) {
+        return <LoadingSkeleton />;
+      }
+
       return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans">
           {/* Header */}
@@ -919,6 +1007,7 @@
                 <button
                   onClick={() => setSidebarOpen(true)}
                   className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition"
+                  aria-label="Abrir menu de projetos"
                 >
                   <Menu className="w-5 h-5" />
                 </button>
@@ -945,7 +1034,7 @@
                 <button
                   onClick={() => setShowTeamManager(true)}
                   className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg transition text-slate-300 hover:text-white text-xs font-medium"
-                  title="Gerenciar equipe"
+                  title="Gerenciar equipe" aria-label="Gerenciar equipe"
                 >
                   <Users className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Equipe ({team.length})</span>
@@ -955,7 +1044,7 @@
                 <button
                   onClick={() => setShowTimesheet(true)}
                   className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg transition text-slate-300 hover:text-white text-xs font-medium"
-                  title="Timesheet - Controle de horas"
+                  title="Timesheet - Controle de horas" aria-label="Timesheet"
                 >
                   <Clock className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Timesheet</span>
@@ -968,14 +1057,14 @@
                 <div className="hidden sm:flex gap-1">
                   <button
                     onClick={exportData}
-                    title="Exportar backup (JSON)"
+                    title="Exportar backup (JSON)" aria-label="Exportar backup"
                     className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition text-slate-300 hover:text-white"
                   >
                     <Download className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    title="Importar backup (JSON)"
+                    title="Importar backup (JSON)" aria-label="Importar backup"
                     className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition text-slate-300 hover:text-white"
                   >
                     <Upload className="w-4 h-4" />
@@ -989,7 +1078,7 @@
                   />
                 </div>
 
-                <div className="flex gap-1 bg-white/5 rounded-lg p-1">
+                <nav className="flex gap-1 bg-white/5 rounded-lg p-1" aria-label="Visualizações do projeto">
                   {[
                     { key: 'gantt', label: 'Gantt' },
                     { key: 'list', label: 'Lista' },
@@ -1008,7 +1097,7 @@
                       {v.label}
                     </button>
                   ))}
-                </div>
+                </nav>
               </div>
             </div>
           </header>
@@ -1054,6 +1143,7 @@
                   onEditProject={setEditingProject}
                   projectFilter={projectFilter}
                   setProjectFilter={setProjectFilter}
+                  showConfirm={showConfirm}
                 />
               </aside>
 
@@ -1064,7 +1154,7 @@
               <aside className={`sidebar-panel lg:hidden ${sidebarOpen ? 'open' : ''} bg-slate-900 p-4`}>
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-lg font-bold">Projetos</h2>
-                  <button onClick={() => setSidebarOpen(false)} className="p-2 hover:bg-white/10 rounded-lg">
+                  <button onClick={() => setSidebarOpen(false)} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Fechar menu">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
@@ -1079,6 +1169,7 @@
                   onEditProject={setEditingProject}
                   projectFilter={projectFilter}
                   setProjectFilter={setProjectFilter}
+                  showConfirm={showConfirm}
                 />
               </aside>
 
@@ -1092,7 +1183,7 @@
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-1">
                             <h2 className="text-2xl sm:text-3xl font-bold">{currentProject.name}</h2>
-                            <button onClick={() => setEditingProject(currentProject)} className="p-1.5 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white" title="Editar projeto">
+                            <button onClick={() => setEditingProject(currentProject)} className="p-1.5 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white" title="Editar projeto" aria-label="Editar projeto">
                               <Edit2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -1158,13 +1249,14 @@
                     {/* Search and Filter Bar */}
                     {currentProject.tasks.length > 0 && (
                       <div className="glass rounded-xl p-3 mb-4 flex flex-col sm:flex-row gap-3">
-                        <div className="relative flex-1">
+                        <div className="relative flex-1" role="search">
                           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                           <input
                             type="text"
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
                             placeholder="Buscar tarefas, responsáveis..."
+                            aria-label="Buscar tarefas"
                             className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 placeholder-slate-500"
                           />
                           {searchQuery && (
@@ -1226,6 +1318,7 @@
                         activeTimer={activeTimer}
                         onStartTimer={startTimer}
                         onStopTimer={stopTimer}
+                        showConfirm={showConfirm}
                       />
                     )}
                     {view === 'kanban' && (
@@ -1237,6 +1330,7 @@
                         activeTimer={activeTimer}
                         onStartTimer={startTimer}
                         onStopTimer={stopTimer}
+                        showConfirm={showConfirm}
                       />
                     )}
                     {view === 'calendar' && (
@@ -1314,6 +1408,7 @@
               onAddLog={addManualTimeLog}
               onDeleteLog={deleteTimeLog}
               onClose={() => setShowTimesheet(false)}
+              showConfirm={showConfirm}
             />
           )}
 
@@ -1326,6 +1421,7 @@
               setEmailConfig={(config) => { setEmailConfig(config); saveEmailConfigToFirebase(config); }}
               onClose={() => setShowTeamManager(false)}
               showToast={showToast}
+              showConfirm={showConfirm}
             />
           )}
 
@@ -1335,12 +1431,13 @@
           </div>
 
           {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+          {confirmModal && <ConfirmModal message={confirmModal.message} onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(null); }} onCancel={() => setConfirmModal(null)} />}
         </div>
       );
     }
 
     // Project Sidebar Component (extracted for desktop/mobile reuse)
-    function ProjectSidebar({ projects, selectedProject, onSelectProject, onDeleteProject, showNewProject, onToggleNewProject, onAddProject, onEditProject, projectFilter, setProjectFilter }) {
+    function ProjectSidebar({ projects, selectedProject, onSelectProject, onDeleteProject, showNewProject, onToggleNewProject, onAddProject, onEditProject, projectFilter, setProjectFilter, showConfirm }) {
       const filtered = projects.filter(p => {
         if (!projectFilter) return true;
         const q = projectFilter.toLowerCase();
@@ -1415,7 +1512,7 @@
                         <Edit2 className="w-3 h-3" />
                       </button>
                       {projects.length > 1 && (
-                        <button onClick={(e) => { e.stopPropagation(); if (confirm('Deletar projeto?')) onDeleteProject(project.id); }}
+                        <button onClick={(e) => { e.stopPropagation(); showConfirm('Deletar projeto e todas as suas tarefas?', () => onDeleteProject(project.id)); }}
                           className="text-slate-400 hover:text-red-400 transition">
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -1689,9 +1786,11 @@
       if (!dateRange || project.tasks.length === 0) {
         return (
           <div className="glass rounded-2xl p-12 text-center">
-            <Calendar className="w-16 h-16 mx-auto mb-4 text-slate-600" />
+            <div className="w-20 h-20 mx-auto mb-4 bg-cyan-500/10 rounded-2xl flex items-center justify-center">
+              <Calendar className="w-10 h-10 text-cyan-400" />
+            </div>
             <h3 className="text-xl font-semibold mb-2">Nenhuma tarefa ainda</h3>
-            <p className="text-slate-400">Adicione tarefas para visualizar o Gantt</p>
+            <p className="text-slate-400 text-sm">Use o botão <strong>+ Nova Tarefa</strong> acima para criar sua primeira tarefa e visualizar o Gantt</p>
           </div>
         );
       }
@@ -1785,11 +1884,7 @@
                             <Edit2 className="w-3 h-3" />
                           </button>
                           <button
-                            onClick={() => {
-                              if (confirm('Deletar tarefa?')) {
-                                onDeleteTask(task.id);
-                              }
-                            }}
+                            onClick={() => showConfirm('Deletar tarefa?', () => onDeleteTask(task.id))}
                             className="p-1 hover:bg-red-500/20 rounded transition text-red-400"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -1870,7 +1965,7 @@
     }
 
     // List View Component
-    function ListView({ project, onUpdateTask, onDeleteTask, onEditTask, activeTimer, onStartTimer, onStopTimer }) {
+    function ListView({ project, onUpdateTask, onDeleteTask, onEditTask, activeTimer, onStartTimer, onStopTimer, showConfirm }) {
       const getStatusLabel = (status) => {
         switch (status) {
           case 'completed': return 'Concluída';
@@ -1892,8 +1987,11 @@
       if (project.tasks.length === 0) {
         return (
           <div className="glass rounded-2xl p-12 text-center">
+            <div className="w-20 h-20 mx-auto mb-4 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
+              <Plus className="w-10 h-10 text-emerald-400" />
+            </div>
             <h3 className="text-xl font-semibold mb-2">Nenhuma tarefa ainda</h3>
-            <p className="text-slate-400">Adicione tarefas ao projeto</p>
+            <p className="text-slate-400 text-sm">Use o botão <strong>+ Nova Tarefa</strong> acima para adicionar tarefas a este projeto</p>
           </div>
         );
       }
@@ -2001,11 +2099,7 @@
                             <ChevronRight className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => {
-                              if (confirm('Deletar tarefa?')) {
-                                onDeleteTask(task.id);
-                              }
-                            }}
+                            onClick={() => showConfirm('Deletar tarefa?', () => onDeleteTask(task.id))}
                             className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition"
                             title="Deletar tarefa"
                           >
@@ -2164,7 +2258,7 @@
     }
 
     // Timesheet Panel Component
-    function TimesheetPanel({ timeLogs, projects, team, onAddLog, onDeleteLog, onClose }) {
+    function TimesheetPanel({ timeLogs, projects, team, onAddLog, onDeleteLog, onClose, showConfirm }) {
       const [tab, setTab] = useState('logs'); // logs, byProject, byMember
       const [manualForm, setManualForm] = useState({ projectId: '', taskId: '', assignee: '', hours: '', minutes: '', date: new Date().toISOString().split('T')[0] });
       const [showManual, setShowManual] = useState(false);
@@ -2291,7 +2385,7 @@
             {/* Logs tab */}
             {tab === 'logs' && (
               timeLogs.length === 0 ? (
-                <p className="text-center text-slate-400 text-sm py-8">Nenhum registro de horas ainda. Use o botão ▶ nas tarefas para iniciar o timer.</p>
+                <div className="text-center py-8"><div className="w-16 h-16 mx-auto mb-3 bg-cyan-500/10 rounded-2xl flex items-center justify-center"><Clock className="w-8 h-8 text-cyan-400" /></div><p className="text-slate-400 text-sm">Nenhum registro de horas ainda.</p><p className="text-slate-500 text-xs mt-1">Use o botao &#9654; nas tarefas para iniciar o timer</p></div>
               ) : (
                 <div className="space-y-2">
                   {[...timeLogs].reverse().map(log => (
@@ -2304,7 +2398,7 @@
                         </div>
                       </div>
                       <span className="font-mono text-sm text-cyan-400 font-bold flex-shrink-0">{formatHours(log.seconds)}</span>
-                      <button onClick={() => { if (confirm('Remover registro?')) onDeleteLog(log.id); }}
+                      <button onClick={() => showConfirm('Remover registro de tempo?', () => onDeleteLog(log.id))}
                         className="p-1 text-slate-400 hover:text-red-400 transition opacity-0 group-hover:opacity-100 flex-shrink-0">
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -2382,7 +2476,7 @@
     }
 
     // Team Manager Component
-    function TeamManager({ team, setTeam, emailConfig, setEmailConfig, onClose, showToast }) {
+    function TeamManager({ team, setTeam, emailConfig, setEmailConfig, onClose, showToast, showConfirm }) {
       const [newName, setNewName] = useState('');
       const [newEmail, setNewEmail] = useState('');
       const [newColor, setNewColor] = useState('#06b6d4');
@@ -2453,7 +2547,7 @@
 
             {/* Team list */}
             {team.length === 0 ? (
-              <p className="text-center text-slate-400 text-sm py-4">Nenhum membro cadastrado</p>
+              <div className="text-center py-6"><div className="w-16 h-16 mx-auto mb-3 bg-emerald-500/10 rounded-2xl flex items-center justify-center"><Users className="w-8 h-8 text-emerald-400" /></div><p className="text-slate-400 text-sm">Nenhum membro cadastrado</p><p className="text-slate-500 text-xs mt-1">Adicione membros usando o formulario acima</p></div>
             ) : (
               <div className="space-y-2">
                 {team.map(m => (
@@ -2466,7 +2560,7 @@
                       <div className="text-xs text-slate-400 truncate">{m.email}</div>
                     </div>
                     <button
-                      onClick={() => { if (confirm(`Remover ${m.name}?`)) removeMember(m.id); }}
+                      onClick={() => showConfirm(`Remover ${m.name} da equipe?`, () => removeMember(m.id))}
                       className="p-1 text-slate-400 hover:text-red-400 transition opacity-0 group-hover:opacity-100"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -2518,7 +2612,7 @@
     }
 
     // Kanban View Component
-    function KanbanView({ project, onUpdateTask, onDeleteTask, onEditTask, activeTimer, onStartTimer, onStopTimer }) {
+    function KanbanView({ project, onUpdateTask, onDeleteTask, onEditTask, activeTimer, onStartTimer, onStopTimer, showConfirm }) {
       const columns = [
         { status: 'pending', label: 'Pendente', color: 'purple', bg: 'bg-purple-500/10', border: 'border-purple-500/30', badge: 'bg-purple-500/20 text-purple-400' },
         { status: 'in-progress', label: 'Em Progresso', color: 'blue', bg: 'bg-blue-500/10', border: 'border-blue-500/30', badge: 'bg-blue-500/20 text-blue-400' },
@@ -2554,8 +2648,11 @@
       if (project.tasks.length === 0) {
         return (
           <div className="glass rounded-2xl p-12 text-center">
+            <div className="w-20 h-20 mx-auto mb-4 bg-blue-500/10 rounded-2xl flex items-center justify-center">
+              <GripVertical className="w-10 h-10 text-blue-400" />
+            </div>
             <h3 className="text-xl font-semibold mb-2">Nenhuma tarefa ainda</h3>
-            <p className="text-slate-400">Adicione tarefas para visualizar o Kanban</p>
+            <p className="text-slate-400 text-sm">Use o botão <strong>+ Nova Tarefa</strong> acima para criar tarefas e visualizar o Kanban</p>
           </div>
         );
       }
@@ -2601,7 +2698,7 @@
                             <button onClick={() => onEditTask(task)} className="p-1 hover:bg-white/10 rounded transition">
                               <Edit2 className="w-3 h-3" />
                             </button>
-                            <button onClick={() => { if (confirm('Deletar tarefa?')) onDeleteTask(task.id); }} className="p-1 hover:bg-red-500/20 rounded transition text-red-400">
+                            <button onClick={() => showConfirm('Deletar tarefa?', () => onDeleteTask(task.id))} className="p-1 hover:bg-red-500/20 rounded transition text-red-400">
                               <Trash2 className="w-3 h-3" />
                             </button>
                           </div>
@@ -2688,8 +2785,11 @@
       if (project.tasks.length === 0) {
         return (
           <div className="glass rounded-2xl p-12 text-center">
+            <div className="w-20 h-20 mx-auto mb-4 bg-purple-500/10 rounded-2xl flex items-center justify-center">
+              <Calendar className="w-10 h-10 text-purple-400" />
+            </div>
             <h3 className="text-xl font-semibold mb-2">Nenhuma tarefa ainda</h3>
-            <p className="text-slate-400">Adicione tarefas para visualizar o Calendário</p>
+            <p className="text-slate-400 text-sm">Use o botão <strong>+ Nova Tarefa</strong> acima para criar tarefas e visualizar o Calendário</p>
           </div>
         );
       }
