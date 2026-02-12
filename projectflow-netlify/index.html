@@ -87,6 +87,19 @@
         transform: scale(1);
       }
     }
+    @keyframes viewTransition {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .animate-view-transition {
+      animation: viewTransition 0.3s ease-out;
+    }
 
     @keyframes pulse-glow {
       0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
@@ -204,6 +217,15 @@
         transform: translateX(0);
       }
     }
+    /* Print styles */
+    @media print {
+      body { background: white !important; color: black !important; }
+      .no-print { display: none !important; }
+      .glass { background: white !important; border: 1px solid #ddd !important; }
+      .print-only { display: block !important; }
+      * { color: black !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+    .print-only { display: none; }
   </style>
 </head>
 <body>
@@ -348,6 +370,12 @@
       </svg>
     );
 
+    const Copy = ({ className, ...props }) => (
+      <svg className={className} {...props} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      </svg>
+    );
+
     // Cloud status indicator component
     function CloudStatusBadge({ status }) {
       const config = {
@@ -404,6 +432,18 @@
       const diffDays = Math.floor((end - today) / (1000 * 60 * 60 * 24));
       return diffDays >= 0 && diffDays <= 2;
     };
+
+    const priorityConfig = {
+      high: { label: 'Alta', icon: '🔴', class: 'bg-red-500/15 text-red-400' },
+      medium: { label: 'Média', icon: '🟡', class: 'bg-amber-500/15 text-amber-400' },
+      low: { label: 'Baixa', icon: '🟢', class: 'bg-emerald-500/15 text-emerald-400' },
+    };
+
+    function PriorityBadge({ priority }) {
+      const p = priorityConfig[priority];
+      if (!p) return null;
+      return <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${p.class}`}>{p.icon} {p.label}</span>;
+    }
 
     // Loading Skeleton Component
     function LoadingSkeleton() {
@@ -470,15 +510,18 @@
         return () => clearTimeout(timer);
       }, [onClose]);
 
-      const colors = {
-        success: 'bg-emerald-500/90 border-emerald-400',
-        error: 'bg-red-500/90 border-red-400',
-        info: 'bg-cyan-500/90 border-cyan-400',
+      const config = {
+        success: { bg: 'bg-emerald-500/90 border-emerald-400', icon: '✅' },
+        error: { bg: 'bg-red-500/90 border-red-400', icon: '❌' },
+        info: { bg: 'bg-cyan-500/90 border-cyan-400', icon: 'ℹ️' },
       };
+      const c = config[type] || config.info;
 
       return (
-        <div className={`fixed bottom-6 right-6 z-[100] px-5 py-3 rounded-xl border text-white text-sm font-medium shadow-2xl animate-scale-in ${colors[type] || colors.info}`}>
+        <div className={`fixed bottom-6 right-6 z-[100] px-5 py-3 rounded-xl border text-white text-sm font-medium shadow-2xl animate-scale-in flex items-center gap-2 ${c.bg}`} role="alert">
+          <span>{c.icon}</span>
           {message}
+          <button onClick={onClose} className="ml-2 hover:opacity-70 transition" aria-label="Fechar notificação">✕</button>
         </div>
       );
     }
@@ -615,6 +658,8 @@
       const [editingTask, setEditingTask] = useState(null);
       const [searchQuery, setSearchQuery] = useState('');
       const [statusFilter, setStatusFilter] = useState('all');
+      const [priorityFilter, setPriorityFilter] = useState('all');
+      const [sortBy, setSortBy] = useState('default');
       const [sidebarOpen, setSidebarOpen] = useState(false);
       const [toast, setToast] = useState(null);
       const [confirmModal, setConfirmModal] = useState(null);
@@ -628,8 +673,14 @@
       const [activeTimer, setActiveTimer] = useState(null); // { taskId, projectId, startTime }
       const [timerTick, setTimerTick] = useState(0);
       const [showTimesheet, setShowTimesheet] = useState(false);
+      const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+      const [activityLog, setActivityLog] = useState([]);
+      const [showActivityLog, setShowActivityLog] = useState(false);
       const fileInputRef = useRef(null);
       const showConfirm = (message, onConfirm) => setConfirmModal({ message, onConfirm });
+      const addActivity = (action, detail) => {
+        setActivityLog(prev => [{ id: Date.now(), action, detail, time: new Date().toISOString() }, ...prev].slice(0, 50));
+      };
       const isFirstLoad = useRef(true);
       const skipNextSave = useRef(false);
       const skipNextTeamSave = useRef(false);
@@ -768,6 +819,33 @@
         return () => clearInterval(interval);
       }, [activeTimer]);
 
+      // Keyboard shortcuts
+      useEffect(() => {
+        const handler = (e) => {
+          // Skip if user is typing in an input/textarea/contenteditable
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+          const key = e.key.toLowerCase();
+          if (key === '1') setView('gantt');
+          else if (key === '2') setView('list');
+          else if (key === '3') setView('kanban');
+          else if (key === '4') setView('calendar');
+          else if (key === '5') setView('dashboard');
+          else if (key === 'n' && !e.ctrlKey && !e.metaKey) setShowNewTask(true);
+          else if (key === 'e') setShowTeamManager(v => !v);
+          else if (key === 't') setShowTimesheet(v => !v);
+          else if (key === 'k' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            setShowGlobalSearch(v => !v);
+          }
+          else if (key === '?') {
+            e.preventDefault();
+            showToast('Atalhos: 1-5=Views | N=Nova | E=Equipe | T=Timesheet | Ctrl+K=Busca global', 'info');
+          }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+      }, []);
+
       // Save time logs to Firebase
       useEffect(() => {
         if (skipNextTimeSave.current) {
@@ -848,18 +926,35 @@
           const matchesSearch = !searchQuery ||
             task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (task.assignee && task.assignee.toLowerCase().includes(searchQuery.toLowerCase())) ||
-            (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
+            (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (task.tags && task.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
           const matchesStatus = statusFilter === 'all' || task.status === statusFilter ||
             (statusFilter === 'overdue' && isOverdue(task));
-          return matchesSearch && matchesStatus;
+          const matchesPriority = priorityFilter === 'all' || (task.priority || 'medium') === priorityFilter;
+          return matchesSearch && matchesStatus && matchesPriority;
         });
-      }, [currentProject, searchQuery, statusFilter]);
+      }, [currentProject, searchQuery, statusFilter, priorityFilter]);
+
+      // Sorted tasks
+      const sortedTasks = useMemo(() => {
+        if (sortBy === 'default') return filteredTasks;
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        const statusOrder = { 'in-progress': 0, pending: 1, completed: 2 };
+        return [...filteredTasks].sort((a, b) => {
+          if (sortBy === 'name') return a.name.localeCompare(b.name);
+          if (sortBy === 'date') return new Date(a.end) - new Date(b.end);
+          if (sortBy === 'priority') return (priorityOrder[a.priority || 'medium']) - (priorityOrder[b.priority || 'medium']);
+          if (sortBy === 'status') return (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0);
+          if (sortBy === 'progress') return b.progress - a.progress;
+          return 0;
+        });
+      }, [filteredTasks, sortBy]);
 
       // Project with filtered tasks for views
       const filteredProject = useMemo(() => {
         if (!currentProject) return null;
-        return { ...currentProject, tasks: filteredTasks };
-      }, [currentProject, filteredTasks]);
+        return { ...currentProject, tasks: sortedTasks };
+      }, [currentProject, sortedTasks]);
 
       const addProject = (projectData) => {
         const newProject = {
@@ -877,6 +972,7 @@
         setSelectedProject(newProject.id);
         setShowNewProject(false);
         showToast(`Projeto "${projectData.name}" criado`, 'success');
+        addActivity('Projeto criado', projectData.name);
       };
 
       const updateProject = (projectId, updates) => {
@@ -892,6 +988,7 @@
           return updated;
         });
         showToast('Projeto deletado', 'info');
+        addActivity('Projeto deletado', '');
       };
 
       const addTask = (taskData) => {
@@ -909,6 +1006,7 @@
         ));
         setShowNewTask(false);
         showToast(`Tarefa "${taskData.name}" criada`, 'success');
+        addActivity('Tarefa criada', taskData.name);
 
         // Send email notification to assignee
         if (taskData.assignee && team.length > 0) {
@@ -941,6 +1039,24 @@
             : p
         ));
         showToast('Tarefa removida', 'info');
+        addActivity('Tarefa removida', '');
+      };
+
+      const duplicateTask = (task) => {
+        const newTask = {
+          ...task,
+          id: Date.now(),
+          name: `${task.name} (cópia)`,
+          status: 'pending',
+          progress: 0,
+        };
+        setProjects(projects.map(p =>
+          p.id === selectedProject
+            ? { ...p, tasks: [...p.tasks, newTask] }
+            : p
+        ));
+        showToast(`Tarefa duplicada: "${newTask.name}"`, 'success');
+        addActivity('Tarefa duplicada', newTask.name);
       };
 
       // Export projects as JSON
@@ -1000,8 +1116,9 @@
       return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans">
           {/* Header */}
-          <header className="glass border-b border-white/10 sticky top-0 z-30">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          <header className="glass border-b border-white/10 sticky top-0 z-30 no-print">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 space-y-3">
+              <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 {/* Mobile menu button */}
                 <button
@@ -1030,6 +1147,17 @@
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Global Search button */}
+                <button
+                  onClick={() => setShowGlobalSearch(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg transition text-slate-300 hover:text-white text-xs font-medium"
+                  title="Busca global (Ctrl+K)" aria-label="Busca global"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Buscar</span>
+                  <kbd className="hidden sm:inline text-[10px] text-slate-500 bg-white/5 px-1 py-0.5 rounded ml-1">⌘K</kbd>
+                </button>
+
                 {/* Team button */}
                 <button
                   onClick={() => setShowTeamManager(true)}
@@ -1048,6 +1176,17 @@
                 >
                   <Clock className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Timesheet</span>
+                </button>
+
+                {/* Activity Log button */}
+                <button
+                  onClick={() => setShowActivityLog(true)}
+                  className="relative flex items-center gap-1.5 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg transition text-slate-300 hover:text-white text-xs font-medium"
+                  title="Atividades recentes" aria-label="Atividades recentes"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Log</span>
+                  {activityLog.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-cyan-500 rounded-full text-[10px] flex items-center justify-center font-bold">{Math.min(activityLog.length, 9)}{activityLog.length > 9 ? '+' : ''}</span>}
                 </button>
 
                 {/* Cloud status */}
@@ -1077,28 +1216,30 @@
                     className="hidden"
                   />
                 </div>
-
-                <nav className="flex gap-1 bg-white/5 rounded-lg p-1" aria-label="Visualizações do projeto">
-                  {[
-                    { key: 'gantt', label: 'Gantt' },
-                    { key: 'list', label: 'Lista' },
-                    { key: 'kanban', label: 'Kanban' },
-                    { key: 'calendar', label: 'Calendário' },
-                  ].map(v => (
-                    <button
-                      key={v.key}
-                      onClick={() => setView(v.key)}
-                      className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition ${
-                        view === v.key
-                          ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
-                          : 'text-slate-300 hover:bg-white/10'
-                      }`}
-                    >
-                      {v.label}
-                    </button>
-                  ))}
-                </nav>
               </div>
+
+              <nav className="flex gap-1 bg-white/5 rounded-lg p-1 w-fit mx-auto" aria-label="Visualizações do projeto">
+                {[
+                  { key: 'gantt', label: 'Gantt', icon: '📊' },
+                  { key: 'list', label: 'Lista', icon: '📋' },
+                  { key: 'kanban', label: 'Kanban', icon: '📌' },
+                  { key: 'calendar', label: 'Calendário', icon: '📅' },
+                  { key: 'dashboard', label: 'Dashboard', icon: '📈' },
+                ].map(v => (
+                  <button
+                    key={v.key}
+                    onClick={() => setView(v.key)}
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition flex items-center gap-1.5 ${
+                      view === v.key
+                        ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
+                        : 'text-slate-300 hover:bg-white/10'
+                    }`}
+                  >
+                    <span className="hidden sm:inline">{v.icon}</span>
+                    {v.label}
+                  </button>
+                ))}
+              </nav>
             </div>
           </header>
 
@@ -1131,7 +1272,7 @@
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
             <div className="flex gap-6">
               {/* Sidebar - Projects (Desktop) */}
-              <aside className="hidden lg:block w-72 flex-shrink-0 animate-slide-in" style={{ animationDelay: '0.1s' }}>
+              <aside className="hidden lg:block w-72 flex-shrink-0 animate-slide-in no-print" style={{ animationDelay: '0.1s' }}>
                 <ProjectSidebar
                   projects={projects}
                   selectedProject={selectedProject}
@@ -1186,6 +1327,9 @@
                             <button onClick={() => setEditingProject(currentProject)} className="p-1.5 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white" title="Editar projeto" aria-label="Editar projeto">
                               <Edit2 className="w-4 h-4" />
                             </button>
+                            <button onClick={() => window.print()} className="p-1.5 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white no-print" title="Imprimir relatório" aria-label="Imprimir relatório">
+                              <Download className="w-4 h-4" />
+                            </button>
                           </div>
                           {currentProject.client && (
                             <div className="text-sm text-slate-400 mb-1">Cliente: <span className="text-slate-300">{currentProject.client}</span></div>
@@ -1219,15 +1363,16 @@
                           {/* Overall progress bar */}
                           {projectStats && (
                             <div className="mt-4 flex items-center gap-3">
-                              <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                              <div className="flex-1 h-2.5 bg-white/10 rounded-full overflow-hidden">
                                 <div
-                                  className="h-full rounded-full transition-all duration-500"
+                                  className="h-full rounded-full transition-all duration-700 ease-out"
                                   style={{
                                     width: `${projectStats.avgProgress}%`,
-                                    background: `linear-gradient(90deg, #06b6d4, #3b82f6)`
+                                    background: projectStats.avgProgress >= 80 ? 'linear-gradient(90deg, #10b981, #34d399)' : projectStats.avgProgress >= 40 ? 'linear-gradient(90deg, #06b6d4, #3b82f6)' : 'linear-gradient(90deg, #f59e0b, #f97316)'
                                   }}
                                 />
                               </div>
+                              <span className="text-xs font-mono text-slate-400 w-10 text-right">{projectStats.avgProgress}%</span>
                             </div>
                           )}
                         </div>
@@ -1248,7 +1393,7 @@
 
                     {/* Search and Filter Bar */}
                     {currentProject.tasks.length > 0 && (
-                      <div className="glass rounded-xl p-3 mb-4 flex flex-col sm:flex-row gap-3">
+                      <div className="glass rounded-xl p-3 mb-4 flex flex-col sm:flex-row gap-3 no-print">
                         <div className="relative flex-1" role="search">
                           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                           <input
@@ -1265,6 +1410,19 @@
                             </button>
                           )}
                         </div>
+                        <select
+                          value={sortBy}
+                          onChange={(e) => setSortBy(e.target.value)}
+                          className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 self-start"
+                          aria-label="Ordenar tarefas"
+                        >
+                          <option value="default" className="bg-slate-800">Ordenar por...</option>
+                          <option value="name" className="bg-slate-800">Nome (A-Z)</option>
+                          <option value="date" className="bg-slate-800">Prazo (mais próximo)</option>
+                          <option value="priority" className="bg-slate-800">Prioridade (maior)</option>
+                          <option value="status" className="bg-slate-800">Status</option>
+                          <option value="progress" className="bg-slate-800">Progresso (maior)</option>
+                        </select>
                         <div className="flex gap-1 bg-white/5 rounded-lg p-1 self-start">
                           {[
                             { value: 'all', label: 'Todas' },
@@ -1286,11 +1444,53 @@
                             </button>
                           ))}
                         </div>
+                        <div className="flex gap-1 bg-white/5 rounded-lg p-1 self-start">
+                          {[
+                            { value: 'all', label: 'Todas', icon: '' },
+                            { value: 'high', label: '🔴 Alta', icon: '' },
+                            { value: 'medium', label: '🟡 Média', icon: '' },
+                            { value: 'low', label: '🟢 Baixa', icon: '' },
+                          ].map(f => (
+                            <button
+                              key={f.value}
+                              onClick={() => setPriorityFilter(f.value)}
+                              className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                                priorityFilter === f.value
+                                  ? 'bg-cyan-500 text-white'
+                                  : 'text-slate-400 hover:text-white hover:bg-white/10'
+                              }`}
+                            >
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
 
                     {showNewTask && (
                       <div className="glass rounded-2xl p-6 mb-6 animate-scale-in">
+                        <div className="mb-4">
+                          <span className="text-xs text-slate-500 block mb-2">Templates rápidos:</span>
+                          <div className="flex flex-wrap gap-2">
+                            {[
+                              { label: '📐 Design', data: { name: 'Design', priority: 'high', tags: ['design'] } },
+                              { label: '💻 Desenvolvimento', data: { name: 'Desenvolvimento', priority: 'high', tags: ['dev'] } },
+                              { label: '✅ Revisão', data: { name: 'Revisão e aprovação', priority: 'medium', tags: ['revisao'] } },
+                              { label: '📝 Conteúdo', data: { name: 'Produção de conteúdo', priority: 'medium', tags: ['conteudo'] } },
+                              { label: '🐛 Bug Fix', data: { name: 'Correção de bug', priority: 'high', tags: ['bug'] } },
+                              { label: '📊 Relatório', data: { name: 'Relatório', priority: 'low', tags: ['relatorio'] } },
+                            ].map((tpl, i) => (
+                              <button key={i} type="button" onClick={() => {
+                                const today = new Date().toISOString().split('T')[0];
+                                const nextWeek = new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0];
+                                addTask({ ...tpl.data, start: today, end: nextWeek, assignee: '', status: 'pending', progress: 0, dependencies: [] });
+                              }}
+                              className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs text-slate-300 hover:text-white transition">
+                                {tpl.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                         <TaskForm
                           onSave={addTask}
                           onCancel={() => setShowNewTask(false)}
@@ -1300,13 +1500,29 @@
                       </div>
                     )}
 
+                    {/* Overdue tasks warning */}
+                    {projectStats && projectStats.overdue > 0 && statusFilter === 'all' && (
+                      <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 animate-fade-in">
+                        <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                        <div className="flex-1">
+                          <span className="text-sm text-red-300 font-medium">{projectStats.overdue} tarefa{projectStats.overdue > 1 ? 's' : ''} atrasada{projectStats.overdue > 1 ? 's' : ''}!</span>
+                          <span className="text-xs text-red-400/70 ml-2">Clique em "Atrasada" no filtro para ver</span>
+                        </div>
+                        <button onClick={() => setStatusFilter('overdue')} className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition">
+                          Ver atrasadas
+                        </button>
+                      </div>
+                    )}
+
                     {/* Views */}
+                    <div key={view} className="animate-view-transition">
                     {view === 'gantt' && (
                       <GanttView
                         project={filteredProject}
                         onUpdateTask={updateTask}
                         onDeleteTask={deleteTask}
                         onEditTask={setEditingTask}
+                        onDuplicateTask={duplicateTask}
                       />
                     )}
                     {view === 'list' && (
@@ -1315,6 +1531,7 @@
                         onUpdateTask={updateTask}
                         onDeleteTask={deleteTask}
                         onEditTask={setEditingTask}
+                        onDuplicateTask={duplicateTask}
                         activeTimer={activeTimer}
                         onStartTimer={startTimer}
                         onStopTimer={stopTimer}
@@ -1327,6 +1544,7 @@
                         onUpdateTask={updateTask}
                         onDeleteTask={deleteTask}
                         onEditTask={setEditingTask}
+                        onDuplicateTask={duplicateTask}
                         activeTimer={activeTimer}
                         onStartTimer={startTimer}
                         onStopTimer={stopTimer}
@@ -1339,9 +1557,13 @@
                         onEditTask={setEditingTask}
                       />
                     )}
+                    {view === 'dashboard' && currentProject && (
+                      <DashboardView project={currentProject} timeLogs={timeLogs} team={team} />
+                    )}
+                    </div>
 
                     {/* Filter results info */}
-                    {(searchQuery || statusFilter !== 'all') && currentProject.tasks.length > 0 && (
+                    {(searchQuery || statusFilter !== 'all' || priorityFilter !== 'all') && currentProject.tasks.length > 0 && (
                       <div className="mt-3 text-xs text-slate-500 text-center">
                         Mostrando {filteredTasks.length} de {currentProject.tasks.length} tarefas
                         {searchQuery && <span> para "{searchQuery}"</span>}
@@ -1432,11 +1654,108 @@
 
           {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
           {confirmModal && <ConfirmModal message={confirmModal.message} onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(null); }} onCancel={() => setConfirmModal(null)} />}
+          {showGlobalSearch && <GlobalSearch projects={projects} onSelect={(projectId, task) => { setSelectedProject(projectId); if (task) setEditingTask(task); }} onClose={() => setShowGlobalSearch(false)} />}
+
+          {/* Activity Log Modal */}
+          {showActivityLog && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={() => setShowActivityLog(false)}>
+              <div className="glass rounded-2xl p-6 max-w-md w-full mx-4 max-h-[80vh] flex flex-col animate-scale-in" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold">Atividades Recentes</h2>
+                  <button onClick={() => setShowActivityLog(false)} className="p-1 hover:bg-white/10 rounded-lg transition"><X className="w-5 h-5" /></button>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-2">
+                  {activityLog.length === 0 ? (
+                    <p className="text-slate-500 text-sm text-center py-8">Nenhuma atividade registrada nesta sessão</p>
+                  ) : activityLog.map(a => (
+                    <div key={a.id} className="flex items-start gap-3 py-2 border-b border-white/5">
+                      <div className="w-2 h-2 rounded-full bg-cyan-500 mt-1.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-slate-200">{a.action}</div>
+                        {a.detail && <div className="text-xs text-slate-400 truncate">{a.detail}</div>}
+                        <div className="text-xs text-slate-600 mt-0.5">{new Date(a.time).toLocaleTimeString('pt-BR')}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {activityLog.length > 0 && (
+                  <button onClick={() => { setActivityLog([]); setShowActivityLog(false); }} className="mt-3 text-xs text-slate-500 hover:text-slate-300 transition">Limpar histórico</button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       );
     }
 
     // Project Sidebar Component (extracted for desktop/mobile reuse)
+    function GlobalSearch({ projects, onSelect, onClose }) {
+      const [query, setQuery] = useState('');
+      const inputRef = useRef(null);
+
+      useEffect(() => { inputRef.current?.focus(); }, []);
+
+      const results = useMemo(() => {
+        if (!query.trim()) return [];
+        const q = query.toLowerCase();
+        const items = [];
+        projects.forEach(p => {
+          if (p.name.toLowerCase().includes(q) || (p.client && p.client.toLowerCase().includes(q))) {
+            items.push({ type: 'project', project: p, label: p.name, sub: p.client || '' });
+          }
+          (p.tasks || []).forEach(t => {
+            if (t.name.toLowerCase().includes(q) || (t.assignee && t.assignee.toLowerCase().includes(q)) ||
+                (t.tags && t.tags.some(tag => tag.includes(q)))) {
+              items.push({ type: 'task', project: p, task: t, label: t.name, sub: `${p.name} · ${t.assignee || 'sem responsável'}` });
+            }
+          });
+        });
+        return items.slice(0, 10);
+      }, [query, projects]);
+
+      return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-[15vh] z-[200] animate-fade-in" onClick={onClose}>
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-lg mx-4 shadow-2xl animate-scale-in overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
+              <Search className="w-5 h-5 text-slate-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Escape') onClose(); }}
+                placeholder="Buscar projetos, tarefas, tags..."
+                className="flex-1 bg-transparent text-white placeholder-slate-500 focus:outline-none text-sm"
+              />
+              <kbd className="text-xs text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">ESC</kbd>
+            </div>
+            {results.length > 0 && (
+              <div className="max-h-80 overflow-y-auto divide-y divide-white/5">
+                {results.map((r, i) => (
+                  <button key={i} onClick={() => { onSelect(r.project.id, r.task); onClose(); }}
+                    className="w-full text-left px-4 py-3 hover:bg-white/5 transition flex items-center gap-3">
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${r.type === 'project' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                      {r.type === 'project' ? 'Projeto' : 'Tarefa'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-white truncate">{r.label}</div>
+                      <div className="text-xs text-slate-500 truncate">{r.sub}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {query && results.length === 0 && (
+              <div className="px-4 py-8 text-center text-slate-500 text-sm">Nenhum resultado para "{query}"</div>
+            )}
+            {!query && (
+              <div className="px-4 py-6 text-center text-slate-500 text-xs">Digite para buscar em todos os projetos e tarefas</div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     function ProjectSidebar({ projects, selectedProject, onSelectProject, onDeleteProject, showNewProject, onToggleNewProject, onAddProject, onEditProject, projectFilter, setProjectFilter, showConfirm }) {
       const filtered = projects.filter(p => {
         if (!projectFilter) return true;
@@ -1601,6 +1920,7 @@
         assignee: '',
         status: 'pending',
         progress: 0,
+        priority: 'medium',
         dependencies: []
       });
 
@@ -1689,6 +2009,61 @@
             )}
           </div>
 
+          <div>
+            <label className="block text-sm font-medium mb-2">Prioridade</label>
+            <div className="flex gap-2">
+              {[
+                { value: 'low', label: 'Baixa', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: '🟢' },
+                { value: 'medium', label: 'Média', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', icon: '🟡' },
+                { value: 'high', label: 'Alta', color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: '🔴' },
+              ].map(p => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, priority: p.value })}
+                  className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition ${
+                    formData.priority === p.value ? p.color + ' border' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                  }`}
+                >
+                  {p.icon} {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Tags</label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {(formData.tags || []).map((tag, i) => (
+                <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-500/20 text-cyan-300">
+                  {tag}
+                  <button type="button" onClick={() => {
+                    const tags = (formData.tags || []).filter((_, idx) => idx !== i);
+                    setFormData({ ...formData, tags });
+                  }} className="hover:text-red-400 transition">×</button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Digitar tag e Enter..."
+                className="flex-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.target.value.trim()) {
+                    e.preventDefault();
+                    const tag = e.target.value.trim().toLowerCase();
+                    if (!(formData.tags || []).includes(tag)) {
+                      setFormData({ ...formData, tags: [...(formData.tags || []), tag] });
+                    }
+                    e.target.value = '';
+                  }
+                }}
+              />
+            </div>
+          </div>
+
           {/* Status and Progress - shown in edit mode */}
           {isEditing && (
             <div className="grid grid-cols-2 gap-4">
@@ -1760,6 +2135,92 @@
             </div>
           )}
 
+          {/* Subtasks / Checklist */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Checklist / Subtarefas</label>
+            <div className="space-y-1.5 mb-2">
+              {(formData.subtasks || []).map((sub, i) => (
+                <div key={i} className="flex items-center gap-2 group">
+                  <input
+                    type="checkbox"
+                    checked={sub.done}
+                    onChange={() => {
+                      const subs = [...(formData.subtasks || [])];
+                      subs[i] = { ...subs[i], done: !subs[i].done };
+                      setFormData({ ...formData, subtasks: subs });
+                    }}
+                    className="rounded accent-cyan-500 flex-shrink-0"
+                  />
+                  <span className={`text-sm flex-1 ${sub.done ? 'line-through text-slate-500' : 'text-slate-300'}`}>{sub.text}</span>
+                  <button type="button" onClick={() => {
+                    const subs = (formData.subtasks || []).filter((_, idx) => idx !== i);
+                    setFormData({ ...formData, subtasks: subs });
+                  }} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded transition text-red-400">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Adicionar item..."
+                className="flex-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.target.value.trim()) {
+                    e.preventDefault();
+                    const subs = [...(formData.subtasks || []), { text: e.target.value.trim(), done: false }];
+                    setFormData({ ...formData, subtasks: subs });
+                    e.target.value = '';
+                  }
+                }}
+              />
+            </div>
+            {(formData.subtasks || []).length > 0 && (
+              <div className="text-xs text-slate-500 mt-1">
+                {(formData.subtasks || []).filter(s => s.done).length}/{(formData.subtasks || []).length} concluídos
+              </div>
+            )}
+          </div>
+
+          {/* Notes / Comments */}
+          {isEditing && (
+            <div>
+              <label className="block text-sm font-medium mb-2">Notas / Comentários</label>
+              <div className="space-y-2 max-h-40 overflow-y-auto mb-2">
+                {(formData.notes || []).map((note, i) => (
+                  <div key={i} className="flex gap-2 text-xs bg-white/5 rounded-lg p-2 group">
+                    <div className="flex-1">
+                      <span className="text-slate-300">{note.text}</span>
+                      <div className="text-slate-500 mt-0.5">{new Date(note.date).toLocaleString('pt-BR')}</div>
+                    </div>
+                    <button type="button" onClick={() => {
+                      const notes = (formData.notes || []).filter((_, idx) => idx !== i);
+                      setFormData({ ...formData, notes });
+                    }} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded transition text-red-400 self-start">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Adicionar nota..."
+                  className="flex-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.target.value.trim()) {
+                      e.preventDefault();
+                      const notes = [...(formData.notes || []), { text: e.target.value.trim(), date: new Date().toISOString() }];
+                      setFormData({ ...formData, notes });
+                      e.target.value = '';
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-2">
             <button
               type="submit"
@@ -1780,7 +2241,7 @@
     }
 
     // Gantt View Component
-    function GanttView({ project, onUpdateTask, onDeleteTask, onEditTask }) {
+    function GanttView({ project, onUpdateTask, onDeleteTask, onEditTask, onDuplicateTask }) {
       const dateRange = getDateRange(project);
 
       if (!dateRange || project.tasks.length === 0) {
@@ -1849,7 +2310,19 @@
                       style={{ animationDelay: `${index * 0.05}s` }}
                     >
                       <div className="w-72 p-4 border-r border-white/10 flex items-center gap-3 flex-shrink-0">
-                        <GripVertical className="w-4 h-4 text-slate-600 flex-shrink-0" />
+                        <button
+                          onClick={() => {
+                            const next = task.status === 'pending' ? 'in-progress' : task.status === 'in-progress' ? 'completed' : 'pending';
+                            const progress = next === 'completed' ? 100 : next === 'in-progress' ? Math.max(task.progress, 10) : 0;
+                            onUpdateTask(task.id, { status: next, progress });
+                          }}
+                          className={`w-4 h-4 rounded-full flex-shrink-0 border-2 transition hover:scale-125 ${
+                            task.status === 'completed' ? 'bg-emerald-500 border-emerald-400' :
+                            task.status === 'in-progress' ? 'bg-blue-500 border-blue-400' :
+                            'bg-transparent border-slate-500 hover:border-slate-300'
+                          }`}
+                          title={`Status: ${task.status === 'completed' ? 'Concluída' : task.status === 'in-progress' ? 'Em Progresso' : 'Pendente'} (clique para mudar)`}
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 mb-1">
                             <span className="font-medium text-sm truncate">{task.name}</span>
@@ -1870,6 +2343,7 @@
                             </div>
                           )}
                           <div className="flex items-center gap-2 text-xs text-slate-400">
+                            {task.priority && <PriorityBadge priority={task.priority} />}
                             {task.assignee && <span className="font-mono">{task.assignee}</span>}
                             <span className="px-2 py-0.5 rounded-full bg-white/10 font-mono">
                               {task.progress}%
@@ -1879,13 +2353,19 @@
                         <div className="flex gap-1 flex-shrink-0">
                           <button
                             onClick={() => onEditTask(task)}
-                            className="p-1 hover:bg-white/10 rounded transition"
+                            className="p-1 hover:bg-white/10 rounded transition" title="Editar"
                           >
                             <Edit2 className="w-3 h-3" />
                           </button>
                           <button
+                            onClick={() => onDuplicateTask(task)}
+                            className="p-1 hover:bg-cyan-500/20 rounded transition text-cyan-400" title="Duplicar"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                          <button
                             onClick={() => showConfirm('Deletar tarefa?', () => onDeleteTask(task.id))}
-                            className="p-1 hover:bg-red-500/20 rounded transition text-red-400"
+                            className="p-1 hover:bg-red-500/20 rounded transition text-red-400" title="Deletar"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -1965,7 +2445,19 @@
     }
 
     // List View Component
-    function ListView({ project, onUpdateTask, onDeleteTask, onEditTask, activeTimer, onStartTimer, onStopTimer, showConfirm }) {
+    function ListView({ project, onUpdateTask, onDeleteTask, onEditTask, onDuplicateTask, activeTimer, onStartTimer, onStopTimer, showConfirm }) {
+      const [selectedTasks, setSelectedTasks] = useState([]);
+
+      const toggleTask = (id) => setSelectedTasks(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+      const toggleAll = () => setSelectedTasks(prev => prev.length === project.tasks.length ? [] : project.tasks.map(t => t.id));
+
+      const bulkAction = (action) => {
+        if (action === 'complete') selectedTasks.forEach(id => onUpdateTask(id, { status: 'completed', progress: 100 }));
+        else if (action === 'pending') selectedTasks.forEach(id => onUpdateTask(id, { status: 'pending', progress: 0 }));
+        else if (action === 'delete') showConfirm(`Deletar ${selectedTasks.length} tarefas?`, () => selectedTasks.forEach(id => onDeleteTask(id)));
+        setSelectedTasks([]);
+      };
+
       const getStatusLabel = (status) => {
         switch (status) {
           case 'completed': return 'Concluída';
@@ -1998,14 +2490,25 @@
 
       return (
         <div className="glass rounded-2xl overflow-hidden">
+          {selectedTasks.length > 0 && (
+            <div className="bg-cyan-500/10 border-b border-cyan-500/20 px-4 py-2 flex items-center gap-3 animate-fade-in">
+              <span className="text-sm text-cyan-300 font-medium">{selectedTasks.length} selecionada{selectedTasks.length > 1 ? 's' : ''}</span>
+              <button onClick={() => bulkAction('complete')} className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-xs font-medium transition">Concluir</button>
+              <button onClick={() => bulkAction('pending')} className="px-2.5 py-1 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg text-xs font-medium transition">Pendente</button>
+              <button onClick={() => bulkAction('delete')} className="px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition">Deletar</button>
+              <button onClick={() => setSelectedTasks([])} className="ml-auto text-xs text-slate-400 hover:text-white transition">Cancelar</button>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[700px]">
               <thead className="bg-white/5 border-b border-white/10">
                 <tr>
+                  <th className="p-4 w-10"><input type="checkbox" onChange={toggleAll} checked={selectedTasks.length === project.tasks.length && project.tasks.length > 0} className="rounded accent-cyan-500" /></th>
                   <th className="text-left p-4 text-sm font-semibold text-slate-400">TAREFA</th>
                   <th className="text-left p-4 text-sm font-semibold text-slate-400 hidden lg:table-cell">DESCRIÇÃO</th>
                   <th className="text-left p-4 text-sm font-semibold text-slate-400">STATUS</th>
                   <th className="text-left p-4 text-sm font-semibold text-slate-400">RESPONSÁVEL</th>
+                  <th className="text-left p-4 text-sm font-semibold text-slate-400">PRIORIDADE</th>
                   <th className="text-left p-4 text-sm font-semibold text-slate-400">PERÍODO</th>
                   <th className="text-left p-4 text-sm font-semibold text-slate-400">PROGRESSO</th>
                   <th className="text-right p-4 text-sm font-semibold text-slate-400">AÇÕES</th>
@@ -2019,9 +2522,12 @@
                   return (
                     <tr
                       key={task.id}
-                      className={`task-row animate-slide-in ${taskOverdue ? 'bg-red-500/5' : ''}`}
+                      className={`task-row animate-slide-in ${taskOverdue ? 'bg-red-500/5' : ''} ${selectedTasks.includes(task.id) ? 'bg-cyan-500/5' : ''}`}
                       style={{ animationDelay: `${index * 0.05}s` }}
                     >
+                      <td className="p-4 w-10">
+                        <input type="checkbox" checked={selectedTasks.includes(task.id)} onChange={() => toggleTask(task.id)} className="rounded accent-cyan-500" />
+                      </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{task.name}</span>
@@ -2041,6 +2547,9 @@
                       </td>
                       <td className="p-4">
                         <span className="text-sm font-mono text-slate-300">{task.assignee || '-'}</span>
+                      </td>
+                      <td className="p-4">
+                        <PriorityBadge priority={task.priority || 'medium'} />
                       </td>
                       <td className="p-4">
                         <div className="text-sm font-mono text-slate-300 whitespace-nowrap">
@@ -2097,6 +2606,13 @@
                             title="Avançar status"
                           >
                             <ChevronRight className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => onDuplicateTask(task)}
+                            className="p-2 hover:bg-cyan-500/20 text-cyan-400 rounded-lg transition"
+                            title="Duplicar tarefa"
+                          >
+                            <Copy className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => showConfirm('Deletar tarefa?', () => onDeleteTask(task.id))}
@@ -2612,7 +3128,7 @@
     }
 
     // Kanban View Component
-    function KanbanView({ project, onUpdateTask, onDeleteTask, onEditTask, activeTimer, onStartTimer, onStopTimer, showConfirm }) {
+    function KanbanView({ project, onUpdateTask, onDeleteTask, onEditTask, onDuplicateTask, activeTimer, onStartTimer, onStopTimer, showConfirm }) {
       const columns = [
         { status: 'pending', label: 'Pendente', color: 'purple', bg: 'bg-purple-500/10', border: 'border-purple-500/30', badge: 'bg-purple-500/20 text-purple-400' },
         { status: 'in-progress', label: 'Em Progresso', color: 'blue', bg: 'bg-blue-500/10', border: 'border-blue-500/30', badge: 'bg-blue-500/20 text-blue-400' },
@@ -2695,19 +3211,40 @@
                                 <Play className="w-3 h-3" />
                               </button>
                             )}
-                            <button onClick={() => onEditTask(task)} className="p-1 hover:bg-white/10 rounded transition">
+                            <button onClick={() => onEditTask(task)} className="p-1 hover:bg-white/10 rounded transition" title="Editar">
                               <Edit2 className="w-3 h-3" />
                             </button>
-                            <button onClick={() => showConfirm('Deletar tarefa?', () => onDeleteTask(task.id))} className="p-1 hover:bg-red-500/20 rounded transition text-red-400">
+                            <button onClick={() => onDuplicateTask(task)} className="p-1 hover:bg-cyan-500/20 rounded transition text-cyan-400" title="Duplicar">
+                              <Copy className="w-3 h-3" />
+                            </button>
+                            <button onClick={() => showConfirm('Deletar tarefa?', () => onDeleteTask(task.id))} className="p-1 hover:bg-red-500/20 rounded transition text-red-400" title="Deletar">
                               <Trash2 className="w-3 h-3" />
                             </button>
                           </div>
                         </div>
+                        {task.tags && task.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {task.tags.map((tag, i) => (
+                              <span key={i} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan-500/15 text-cyan-400">{tag}</span>
+                            ))}
+                          </div>
+                        )}
                         {task.description && (
                           <p className="text-xs text-slate-400 line-clamp-2 mb-2">{task.description}</p>
                         )}
+                        {task.subtasks && task.subtasks.length > 0 && (
+                          <div className="mb-2 flex items-center gap-2 text-xs text-slate-400">
+                            <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                              <div className="h-full bg-cyan-500 rounded-full transition-all" style={{ width: `${(task.subtasks.filter(s => s.done).length / task.subtasks.length) * 100}%` }} />
+                            </div>
+                            <span className="font-mono">{task.subtasks.filter(s => s.done).length}/{task.subtasks.length}</span>
+                          </div>
+                        )}
                         <div className="flex items-center justify-between text-xs text-slate-400">
-                          <span className="font-mono">{task.assignee || '-'}</span>
+                          <div className="flex items-center gap-2">
+                            {task.priority && <PriorityBadge priority={task.priority} />}
+                            <span className="font-mono">{task.assignee || '-'}</span>
+                          </div>
                           {taskOverdue && <span className="text-red-400 font-semibold">Atrasada</span>}
                         </div>
                         <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
@@ -2731,6 +3268,100 @@
     }
 
     // Calendar View Component
+    function DashboardView({ project, timeLogs, team }) {
+      const tasks = project.tasks || [];
+      const total = tasks.length;
+      const completed = tasks.filter(t => t.status === 'completed').length;
+      const inProgress = tasks.filter(t => t.status === 'in-progress').length;
+      const pending = tasks.filter(t => t.status === 'pending').length;
+      const overdue = tasks.filter(t => isOverdue(t)).length;
+      const avgProgress = total > 0 ? Math.round(tasks.reduce((s, t) => s + (t.progress || 0), 0) / total) : 0;
+
+      const byPriority = { high: 0, medium: 0, low: 0 };
+      tasks.forEach(t => { byPriority[t.priority || 'medium']++; });
+
+      const projectLogs = timeLogs.filter(l => l.projectId === project.id);
+      const totalHours = projectLogs.reduce((s, l) => s + (l.seconds || 0), 0) / 3600;
+
+      const byAssignee = {};
+      tasks.forEach(t => {
+        const name = t.assignee || 'Sem responsável';
+        if (!byAssignee[name]) byAssignee[name] = { total: 0, completed: 0 };
+        byAssignee[name].total++;
+        if (t.status === 'completed') byAssignee[name].completed++;
+      });
+
+      const StatCard = ({ label, value, sub, color }) => (
+        <div className="glass rounded-xl p-4 flex-1 min-w-[140px]">
+          <div className={`text-2xl font-bold ${color}`}>{value}</div>
+          <div className="text-xs text-slate-400 mt-1">{label}</div>
+          {sub && <div className="text-xs text-slate-500 mt-0.5">{sub}</div>}
+        </div>
+      );
+
+      const Bar = ({ label, value, max, color }) => (
+        <div className="flex items-center gap-3 text-sm">
+          <span className="w-28 text-slate-400 truncate text-xs">{label}</span>
+          <div className="flex-1 h-3 bg-white/10 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full ${color}`} style={{ width: `${max > 0 ? (value / max) * 100 : 0}%` }} />
+          </div>
+          <span className="text-xs font-mono text-slate-300 w-8 text-right">{value}</span>
+        </div>
+      );
+
+      return (
+        <div className="space-y-4 animate-view-transition">
+          {/* KPI Cards */}
+          <div className="flex flex-wrap gap-3">
+            <StatCard label="Total de tarefas" value={total} color="text-white" />
+            <StatCard label="Concluídas" value={completed} sub={total > 0 ? `${Math.round(completed/total*100)}%` : ''} color="text-emerald-400" />
+            <StatCard label="Em progresso" value={inProgress} color="text-blue-400" />
+            <StatCard label="Atrasadas" value={overdue} color={overdue > 0 ? "text-red-400" : "text-slate-500"} />
+            <StatCard label="Horas registradas" value={totalHours.toFixed(1)+'h'} color="text-cyan-400" />
+            <StatCard label="Progresso médio" value={avgProgress+'%'} color="text-amber-400" />
+          </div>
+
+          {/* Status Distribution */}
+          <div className="glass rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-slate-300 mb-3">Distribuição por Status</h3>
+            <div className="flex gap-2 h-6 rounded-full overflow-hidden bg-white/5">
+              {completed > 0 && <div className="bg-emerald-500 transition-all" style={{ width: `${(completed/total)*100}%` }} title={`Concluídas: ${completed}`} />}
+              {inProgress > 0 && <div className="bg-blue-500 transition-all" style={{ width: `${(inProgress/total)*100}%` }} title={`Em progresso: ${inProgress}`} />}
+              {pending > 0 && <div className="bg-purple-500 transition-all" style={{ width: `${(pending/total)*100}%` }} title={`Pendentes: ${pending}`} />}
+            </div>
+            <div className="flex gap-4 mt-2 text-xs text-slate-400">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Concluídas ({completed})</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> Em progresso ({inProgress})</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500" /> Pendentes ({pending})</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* By Priority */}
+            <div className="glass rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-slate-300 mb-3">Por Prioridade</h3>
+              <div className="space-y-2">
+                <Bar label="🔴 Alta" value={byPriority.high} max={total} color="bg-red-500" />
+                <Bar label="🟡 Média" value={byPriority.medium} max={total} color="bg-amber-500" />
+                <Bar label="🟢 Baixa" value={byPriority.low} max={total} color="bg-emerald-500" />
+              </div>
+            </div>
+
+            {/* By Assignee */}
+            <div className="glass rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-slate-300 mb-3">Por Responsável</h3>
+              <div className="space-y-2">
+                {Object.entries(byAssignee).map(([name, data]) => (
+                  <Bar key={name} label={name} value={data.completed} max={data.total} color="bg-cyan-500" />
+                ))}
+              </div>
+              {Object.keys(byAssignee).length === 0 && <p className="text-xs text-slate-500">Nenhuma tarefa atribuída</p>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     function CalendarView({ project, onEditTask }) {
       const [currentMonth, setCurrentMonth] = useState(() => {
         const now = new Date();
