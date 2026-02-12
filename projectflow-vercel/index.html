@@ -1217,6 +1217,7 @@
                   />
                 </div>
               </div>
+              </div>
 
               <nav className="flex gap-1 bg-white/5 rounded-lg p-1 w-fit mx-auto" aria-label="Visualizações do projeto">
                 {[
@@ -1523,6 +1524,7 @@
                         onDeleteTask={deleteTask}
                         onEditTask={setEditingTask}
                         onDuplicateTask={duplicateTask}
+                        showConfirm={showConfirm}
                       />
                     )}
                     {view === 'list' && (
@@ -2241,7 +2243,7 @@
     }
 
     // Gantt View Component
-    function GanttView({ project, onUpdateTask, onDeleteTask, onEditTask, onDuplicateTask }) {
+    function GanttView({ project, onUpdateTask, onDeleteTask, onEditTask, onDuplicateTask, showConfirm }) {
       const dateRange = getDateRange(project);
 
       if (!dateRange || project.tasks.length === 0) {
