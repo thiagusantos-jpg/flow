@@ -1573,14 +1573,15 @@
                     )}
 
                     {editingTask && (
-                      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) setEditingTask(null); }}>
-                        <div className="glass rounded-2xl p-6 max-w-lg w-full mx-4 animate-scale-in">
-                          <div className="flex items-center justify-between mb-4">
+                      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4" onClick={(e) => { if (e.target === e.currentTarget) setEditingTask(null); }}>
+                        <div className="glass rounded-2xl p-6 max-w-lg w-full max-h-[90vh] flex flex-col animate-scale-in">
+                          <div className="flex items-center justify-between mb-4 flex-shrink-0">
                             <h3 className="text-xl font-bold">Editar Tarefa</h3>
                             <button onClick={() => setEditingTask(null)} className="p-1 hover:bg-white/10 rounded-lg transition">
                               <X className="w-5 h-5" />
                             </button>
                           </div>
+                          <div className="overflow-y-auto flex-1 pr-1">
                           <TaskForm
                             initialData={editingTask}
                             onSave={(data) => {
@@ -1593,6 +1594,7 @@
                             team={team}
                             isEditing
                           />
+                          </div>
                         </div>
                       </div>
                     )}
