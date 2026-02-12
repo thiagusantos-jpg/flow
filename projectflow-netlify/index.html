@@ -674,8 +674,13 @@
       const [timerTick, setTimerTick] = useState(0);
       const [showTimesheet, setShowTimesheet] = useState(false);
       const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+      const [activityLog, setActivityLog] = useState([]);
+      const [showActivityLog, setShowActivityLog] = useState(false);
       const fileInputRef = useRef(null);
       const showConfirm = (message, onConfirm) => setConfirmModal({ message, onConfirm });
+      const addActivity = (action, detail) => {
+        setActivityLog(prev => [{ id: Date.now(), action, detail, time: new Date().toISOString() }, ...prev].slice(0, 50));
+      };
       const isFirstLoad = useRef(true);
       const skipNextSave = useRef(false);
       const skipNextTeamSave = useRef(false);
@@ -967,6 +972,7 @@
         setSelectedProject(newProject.id);
         setShowNewProject(false);
         showToast(`Projeto "${projectData.name}" criado`, 'success');
+        addActivity('Projeto criado', projectData.name);
       };
 
       const updateProject = (projectId, updates) => {
@@ -982,6 +988,7 @@
           return updated;
         });
         showToast('Projeto deletado', 'info');
+        addActivity('Projeto deletado', '');
       };
 
       const addTask = (taskData) => {
@@ -999,6 +1006,7 @@
         ));
         setShowNewTask(false);
         showToast(`Tarefa "${taskData.name}" criada`, 'success');
+        addActivity('Tarefa criada', taskData.name);
 
         // Send email notification to assignee
         if (taskData.assignee && team.length > 0) {
@@ -1031,6 +1039,7 @@
             : p
         ));
         showToast('Tarefa removida', 'info');
+        addActivity('Tarefa removida', '');
       };
 
       const duplicateTask = (task) => {
@@ -1047,6 +1056,7 @@
             : p
         ));
         showToast(`Tarefa duplicada: "${newTask.name}"`, 'success');
+        addActivity('Tarefa duplicada', newTask.name);
       };
 
       // Export projects as JSON
@@ -1166,6 +1176,17 @@
                 >
                   <Clock className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Timesheet</span>
+                </button>
+
+                {/* Activity Log button */}
+                <button
+                  onClick={() => setShowActivityLog(true)}
+                  className="relative flex items-center gap-1.5 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg transition text-slate-300 hover:text-white text-xs font-medium"
+                  title="Atividades recentes" aria-label="Atividades recentes"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Log</span>
+                  {activityLog.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-cyan-500 rounded-full text-[10px] flex items-center justify-center font-bold">{Math.min(activityLog.length, 9)}{activityLog.length > 9 ? '+' : ''}</span>}
                 </button>
 
                 {/* Cloud status */}
@@ -1448,6 +1469,28 @@
 
                     {showNewTask && (
                       <div className="glass rounded-2xl p-6 mb-6 animate-scale-in">
+                        <div className="mb-4">
+                          <span className="text-xs text-slate-500 block mb-2">Templates rápidos:</span>
+                          <div className="flex flex-wrap gap-2">
+                            {[
+                              { label: '📐 Design', data: { name: 'Design', priority: 'high', tags: ['design'] } },
+                              { label: '💻 Desenvolvimento', data: { name: 'Desenvolvimento', priority: 'high', tags: ['dev'] } },
+                              { label: '✅ Revisão', data: { name: 'Revisão e aprovação', priority: 'medium', tags: ['revisao'] } },
+                              { label: '📝 Conteúdo', data: { name: 'Produção de conteúdo', priority: 'medium', tags: ['conteudo'] } },
+                              { label: '🐛 Bug Fix', data: { name: 'Correção de bug', priority: 'high', tags: ['bug'] } },
+                              { label: '📊 Relatório', data: { name: 'Relatório', priority: 'low', tags: ['relatorio'] } },
+                            ].map((tpl, i) => (
+                              <button key={i} type="button" onClick={() => {
+                                const today = new Date().toISOString().split('T')[0];
+                                const nextWeek = new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0];
+                                addTask({ ...tpl.data, start: today, end: nextWeek, assignee: '', status: 'pending', progress: 0, dependencies: [] });
+                              }}
+                              className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs text-slate-300 hover:text-white transition">
+                                {tpl.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                         <TaskForm
                           onSave={addTask}
                           onCancel={() => setShowNewTask(false)}
@@ -1612,6 +1655,35 @@
           {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
           {confirmModal && <ConfirmModal message={confirmModal.message} onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(null); }} onCancel={() => setConfirmModal(null)} />}
           {showGlobalSearch && <GlobalSearch projects={projects} onSelect={(projectId, task) => { setSelectedProject(projectId); if (task) setEditingTask(task); }} onClose={() => setShowGlobalSearch(false)} />}
+
+          {/* Activity Log Modal */}
+          {showActivityLog && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={() => setShowActivityLog(false)}>
+              <div className="glass rounded-2xl p-6 max-w-md w-full mx-4 max-h-[80vh] flex flex-col animate-scale-in" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold">Atividades Recentes</h2>
+                  <button onClick={() => setShowActivityLog(false)} className="p-1 hover:bg-white/10 rounded-lg transition"><X className="w-5 h-5" /></button>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-2">
+                  {activityLog.length === 0 ? (
+                    <p className="text-slate-500 text-sm text-center py-8">Nenhuma atividade registrada nesta sessão</p>
+                  ) : activityLog.map(a => (
+                    <div key={a.id} className="flex items-start gap-3 py-2 border-b border-white/5">
+                      <div className="w-2 h-2 rounded-full bg-cyan-500 mt-1.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-slate-200">{a.action}</div>
+                        {a.detail && <div className="text-xs text-slate-400 truncate">{a.detail}</div>}
+                        <div className="text-xs text-slate-600 mt-0.5">{new Date(a.time).toLocaleTimeString('pt-BR')}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {activityLog.length > 0 && (
+                  <button onClick={() => { setActivityLog([]); setShowActivityLog(false); }} className="mt-3 text-xs text-slate-500 hover:text-slate-300 transition">Limpar histórico</button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -2374,6 +2446,18 @@
 
     // List View Component
     function ListView({ project, onUpdateTask, onDeleteTask, onEditTask, onDuplicateTask, activeTimer, onStartTimer, onStopTimer, showConfirm }) {
+      const [selectedTasks, setSelectedTasks] = useState([]);
+
+      const toggleTask = (id) => setSelectedTasks(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+      const toggleAll = () => setSelectedTasks(prev => prev.length === project.tasks.length ? [] : project.tasks.map(t => t.id));
+
+      const bulkAction = (action) => {
+        if (action === 'complete') selectedTasks.forEach(id => onUpdateTask(id, { status: 'completed', progress: 100 }));
+        else if (action === 'pending') selectedTasks.forEach(id => onUpdateTask(id, { status: 'pending', progress: 0 }));
+        else if (action === 'delete') showConfirm(`Deletar ${selectedTasks.length} tarefas?`, () => selectedTasks.forEach(id => onDeleteTask(id)));
+        setSelectedTasks([]);
+      };
+
       const getStatusLabel = (status) => {
         switch (status) {
           case 'completed': return 'Concluída';
@@ -2406,10 +2490,20 @@
 
       return (
         <div className="glass rounded-2xl overflow-hidden">
+          {selectedTasks.length > 0 && (
+            <div className="bg-cyan-500/10 border-b border-cyan-500/20 px-4 py-2 flex items-center gap-3 animate-fade-in">
+              <span className="text-sm text-cyan-300 font-medium">{selectedTasks.length} selecionada{selectedTasks.length > 1 ? 's' : ''}</span>
+              <button onClick={() => bulkAction('complete')} className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-xs font-medium transition">Concluir</button>
+              <button onClick={() => bulkAction('pending')} className="px-2.5 py-1 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg text-xs font-medium transition">Pendente</button>
+              <button onClick={() => bulkAction('delete')} className="px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition">Deletar</button>
+              <button onClick={() => setSelectedTasks([])} className="ml-auto text-xs text-slate-400 hover:text-white transition">Cancelar</button>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[700px]">
               <thead className="bg-white/5 border-b border-white/10">
                 <tr>
+                  <th className="p-4 w-10"><input type="checkbox" onChange={toggleAll} checked={selectedTasks.length === project.tasks.length && project.tasks.length > 0} className="rounded accent-cyan-500" /></th>
                   <th className="text-left p-4 text-sm font-semibold text-slate-400">TAREFA</th>
                   <th className="text-left p-4 text-sm font-semibold text-slate-400 hidden lg:table-cell">DESCRIÇÃO</th>
                   <th className="text-left p-4 text-sm font-semibold text-slate-400">STATUS</th>
@@ -2428,9 +2522,12 @@
                   return (
                     <tr
                       key={task.id}
-                      className={`task-row animate-slide-in ${taskOverdue ? 'bg-red-500/5' : ''}`}
+                      className={`task-row animate-slide-in ${taskOverdue ? 'bg-red-500/5' : ''} ${selectedTasks.includes(task.id) ? 'bg-cyan-500/5' : ''}`}
                       style={{ animationDelay: `${index * 0.05}s` }}
                     >
+                      <td className="p-4 w-10">
+                        <input type="checkbox" checked={selectedTasks.includes(task.id)} onChange={() => toggleTask(task.id)} className="rounded accent-cyan-500" />
+                      </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{task.name}</span>
