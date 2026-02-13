@@ -70,6 +70,31 @@
     .ring-primary:focus { --tw-ring-color: color-mix(in srgb, var(--pf-primary) 50%, transparent); }
     .border-primary { border-color: var(--pf-primary) !important; }
     .text-primary { color: var(--pf-primary) !important; }
+    /* Custom tooltips */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: -32px;
+      left: 50%;
+      transform: translateX(-50%) scale(0.9);
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s, transform 0.15s;
+      z-index: 50;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    [data-tooltip]:hover::after {
+      opacity: 1;
+      transform: translateX(-50%) scale(1);
+    }
+    .icon-active { background: rgba(255,255,255,0.1); color: white !important; }
 
     .font-mono {
       font-family: 'Space Mono', monospace;
@@ -1195,20 +1220,20 @@
                 <kbd className="ml-auto text-[10px] text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">Ctrl+K</kbd>
               </button>
               <div className="flex items-center gap-1">
-                <button onClick={() => setShowGlobalSearch(true)} className="sm:hidden p-2 hover:bg-white/10 rounded-lg transition text-slate-400" title="Buscar"><Search className="w-4 h-4" /></button>
-                <button onClick={() => setShowTeamManager(true)} className="p-2 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white" title="Equipe"><Users className="w-4 h-4" /></button>
-                <button onClick={() => setShowTimesheet(true)} className="p-2 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white" title="Timesheet"><Clock className="w-4 h-4" /></button>
-                <button onClick={() => setShowActivityLog(true)} className="relative p-2 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white" title="Log">
+                <button onClick={() => setShowGlobalSearch(true)} data-tooltip="Buscar (Ctrl+K)" className="sm:hidden p-2 hover:bg-white/10 rounded-lg transition text-slate-400"><Search className="w-4 h-4" /></button>
+                <button onClick={() => setShowTeamManager(true)} data-tooltip="Equipe" className={`p-2 rounded-lg transition ${showTeamManager ? 'icon-active' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}><Users className="w-4 h-4" /></button>
+                <button onClick={() => setShowTimesheet(true)} data-tooltip="Timesheet" className={`p-2 rounded-lg transition ${showTimesheet ? 'icon-active' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}><Clock className="w-4 h-4" /></button>
+                <button onClick={() => setShowActivityLog(true)} data-tooltip="Atividades" className={`relative p-2 rounded-lg transition ${showActivityLog ? 'icon-active' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}>
                   <AlertTriangle className="w-4 h-4" />
                   {activityLog.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ background: appSettings.primaryColor || 'var(--pf-primary)' }} />}
                 </button>
                 <CloudStatusBadge status={cloudStatus} />
                 <div className="w-px h-5 bg-white/10 mx-1 hidden sm:block" />
-                <button onClick={exportData} className="hidden sm:block p-2 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white" title="Exportar"><Download className="w-4 h-4" /></button>
-                <button onClick={() => fileInputRef.current?.click()} className="hidden sm:block p-2 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white" title="Importar"><Upload className="w-4 h-4" /></button>
+                <button onClick={exportData} data-tooltip="Exportar" className="hidden sm:block p-2 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white"><Download className="w-4 h-4" /></button>
+                <button onClick={() => fileInputRef.current?.click()} data-tooltip="Importar" className="hidden sm:block p-2 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white"><Upload className="w-4 h-4" /></button>
                 <input ref={fileInputRef} type="file" accept=".json" onChange={importData} className="hidden" />
                 <div className="w-px h-5 bg-white/10 mx-1 hidden sm:block" />
-                <button onClick={() => setShowSettings(true)} className="p-2 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white" title="Configuracoes"><SettingsIcon className="w-4 h-4" /></button>
+                <button onClick={() => setShowSettings(true)} data-tooltip="Configuracoes" className={`p-2 rounded-lg transition ${showSettings ? 'icon-active' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}><SettingsIcon className="w-4 h-4" /></button>
               </div>
             </div>
           </header>
@@ -1464,6 +1489,30 @@
                           Nova Tarefa
                         </button>
                       </div>
+                    </div>
+
+                    {/* View Tabs - inline above tasks */}
+                    <div className="glass rounded-xl p-1.5 mb-4 flex items-center gap-1 overflow-x-auto no-print">
+                      {[
+                        { key: 'gantt', label: 'Gantt', icon: '📊' },
+                        { key: 'list', label: 'Lista', icon: '📋' },
+                        { key: 'kanban', label: 'Kanban', icon: '📌' },
+                        { key: 'calendar', label: 'Calendario', icon: '📅' },
+                        { key: 'dashboard', label: 'Dashboard', icon: '📈' },
+                      ].map(v => (
+                        <button
+                          key={v.key}
+                          onClick={() => setView(v.key)}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 whitespace-nowrap ${
+                            view === v.key
+                              ? 'tab-active text-white shadow-lg'
+                              : 'text-slate-400 hover:bg-white/10 hover:text-white'
+                          }`}
+                        >
+                          <span>{v.icon}</span>
+                          {v.label}
+                        </button>
+                      ))}
                     </div>
 
                     {/* Briefing section */}
