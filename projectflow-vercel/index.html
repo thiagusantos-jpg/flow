@@ -62,6 +62,14 @@
     * {
       font-family: 'Outfit', sans-serif;
     }
+    .btn-primary { background: linear-gradient(135deg, var(--pf-primary), var(--pf-accent)) !important; }
+    .btn-primary:hover { box-shadow: 0 4px 15px color-mix(in srgb, var(--pf-primary) 40%, transparent); }
+    .bg-primary { background: var(--pf-primary) !important; }
+    .tab-active { background: var(--pf-primary) !important; }
+    .progress-bar { background: linear-gradient(90deg, var(--pf-primary), var(--pf-accent)) !important; }
+    .ring-primary:focus { --tw-ring-color: color-mix(in srgb, var(--pf-primary) 50%, transparent); }
+    .border-primary { border-color: var(--pf-primary) !important; }
+    .text-primary { color: var(--pf-primary) !important; }
 
     .font-mono {
       font-family: 'Space Mono', monospace;
@@ -1162,7 +1170,7 @@
       }
 
       return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans">
+        <div className="min-h-screen text-white font-sans" style={{ background: `linear-gradient(135deg, ${appSettings.bgColor || '#0f172a'}, ${appSettings.bgColor || '#0f172a'}dd, ${appSettings.bgColor || '#0f172a'})` }}>
           {/* Header - Clean top bar */}
           <header className="border-b border-white/10 sticky top-0 z-30 no-print" style={{ background: (appSettings.bgColor || '#0f172a') + 'ee', backdropFilter: 'blur(12px)' }}>
             <div className="flex items-center justify-between px-4 h-14">
@@ -1222,15 +1230,15 @@
                     <div className="space-y-4">
                       <div>
                         <label className="block text-xs text-slate-400 mb-1">Nome da Empresa</label>
-                        <input type="text" value={appSettings.companyName || ''} onChange={(e) => setAppSettings(s => ({...s, companyName: e.target.value}))} placeholder="ProjectFlow" className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50" />
+                        <input type="text" value={appSettings.companyName || ''} onChange={(e) => setAppSettings(s => ({...s, companyName: e.target.value}))} placeholder="ProjectFlow" className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary focus:ring-2" />
                       </div>
                       <div>
                         <label className="block text-xs text-slate-400 mb-1">Slogan / Descricao</label>
-                        <input type="text" value={appSettings.companyTagline || ''} onChange={(e) => setAppSettings(s => ({...s, companyTagline: e.target.value}))} placeholder="Gestao Visual de Projetos" className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50" />
+                        <input type="text" value={appSettings.companyTagline || ''} onChange={(e) => setAppSettings(s => ({...s, companyTagline: e.target.value}))} placeholder="Gestao Visual de Projetos" className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary focus:ring-2" />
                       </div>
                       <div>
                         <label className="block text-xs text-slate-400 mb-1">URL do Logotipo</label>
-                        <input type="url" value={appSettings.logoUrl || ''} onChange={(e) => setAppSettings(s => ({...s, logoUrl: e.target.value}))} placeholder="https://suaempresa.com/logo.png" className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50" />
+                        <input type="url" value={appSettings.logoUrl || ''} onChange={(e) => setAppSettings(s => ({...s, logoUrl: e.target.value}))} placeholder="https://suaempresa.com/logo.png" className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary focus:ring-2" />
                         {appSettings.logoUrl && <img src={appSettings.logoUrl} alt="Preview" className="mt-2 h-10 w-auto rounded bg-white/5 p-1" />}
                       </div>
                       <div className="grid grid-cols-3 gap-4">
@@ -1238,21 +1246,21 @@
                           <label className="block text-xs text-slate-400 mb-1">Cor Primaria</label>
                           <div className="flex items-center gap-2">
                             <input type="color" value={appSettings.primaryColor || '#06b6d4'} onChange={(e) => setAppSettings(s => ({...s, primaryColor: e.target.value}))} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
-                            <input type="text" value={appSettings.primaryColor || '#06b6d4'} onChange={(e) => setAppSettings(s => ({...s, primaryColor: e.target.value}))} className="flex-1 px-2 py-1.5 bg-white/5 border border-white/10 rounded text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/50" />
+                            <input type="text" value={appSettings.primaryColor || '#06b6d4'} onChange={(e) => setAppSettings(s => ({...s, primaryColor: e.target.value}))} className="flex-1 px-2 py-1.5 bg-white/5 border border-white/10 rounded text-xs font-mono focus:outline-none focus:ring-2 ring-primary focus:ring-2" />
                           </div>
                         </div>
                         <div>
                           <label className="block text-xs text-slate-400 mb-1">Cor Destaque</label>
                           <div className="flex items-center gap-2">
                             <input type="color" value={appSettings.accentColor || '#3b82f6'} onChange={(e) => setAppSettings(s => ({...s, accentColor: e.target.value}))} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
-                            <input type="text" value={appSettings.accentColor || '#3b82f6'} onChange={(e) => setAppSettings(s => ({...s, accentColor: e.target.value}))} className="flex-1 px-2 py-1.5 bg-white/5 border border-white/10 rounded text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/50" />
+                            <input type="text" value={appSettings.accentColor || '#3b82f6'} onChange={(e) => setAppSettings(s => ({...s, accentColor: e.target.value}))} className="flex-1 px-2 py-1.5 bg-white/5 border border-white/10 rounded text-xs font-mono focus:outline-none focus:ring-2 ring-primary focus:ring-2" />
                           </div>
                         </div>
                         <div>
                           <label className="block text-xs text-slate-400 mb-1">Cor Fundo</label>
                           <div className="flex items-center gap-2">
                             <input type="color" value={appSettings.bgColor || '#0f172a'} onChange={(e) => setAppSettings(s => ({...s, bgColor: e.target.value}))} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
-                            <input type="text" value={appSettings.bgColor || '#0f172a'} onChange={(e) => setAppSettings(s => ({...s, bgColor: e.target.value}))} className="flex-1 px-2 py-1.5 bg-white/5 border border-white/10 rounded text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/50" />
+                            <input type="text" value={appSettings.bgColor || '#0f172a'} onChange={(e) => setAppSettings(s => ({...s, bgColor: e.target.value}))} className="flex-1 px-2 py-1.5 bg-white/5 border border-white/10 rounded text-xs font-mono focus:outline-none focus:ring-2 ring-primary focus:ring-2" />
                           </div>
                         </div>
                       </div>
@@ -1272,15 +1280,15 @@
                     <div className="space-y-4">
                       <div>
                         <label className="block text-xs text-slate-400 mb-1">EmailJS - Service ID</label>
-                        <input type="text" value={emailConfig.serviceId} onChange={(e) => setEmailConfig(c => ({...c, serviceId: e.target.value}))} placeholder="service_xxxxxx" className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50" />
+                        <input type="text" value={emailConfig.serviceId} onChange={(e) => setEmailConfig(c => ({...c, serviceId: e.target.value}))} placeholder="service_xxxxxx" className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary focus:ring-2" />
                       </div>
                       <div>
                         <label className="block text-xs text-slate-400 mb-1">EmailJS - Template ID</label>
-                        <input type="text" value={emailConfig.templateId} onChange={(e) => setEmailConfig(c => ({...c, templateId: e.target.value}))} placeholder="template_xxxxxx" className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50" />
+                        <input type="text" value={emailConfig.templateId} onChange={(e) => setEmailConfig(c => ({...c, templateId: e.target.value}))} placeholder="template_xxxxxx" className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary focus:ring-2" />
                       </div>
                       <div>
                         <label className="block text-xs text-slate-400 mb-1">EmailJS - Public Key</label>
-                        <input type="text" value={emailConfig.publicKey} onChange={(e) => setEmailConfig(c => ({...c, publicKey: e.target.value}))} placeholder="xxxxxxxxx" className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50" />
+                        <input type="text" value={emailConfig.publicKey} onChange={(e) => setEmailConfig(c => ({...c, publicKey: e.target.value}))} placeholder="xxxxxxxxx" className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary focus:ring-2" />
                       </div>
                       <div className="p-3 rounded-lg bg-white/5 border border-white/10">
                         <p className="text-xs text-slate-400 mb-1">Firebase</p>
@@ -1429,7 +1437,7 @@
                                   {projectStats.overdue} atrasada{projectStats.overdue > 1 ? 's' : ''}
                                 </span>
                               )}
-                              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-400 font-mono">
+                              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/15 text-primary font-mono">
                                 {projectStats.avgProgress}% progresso
                               </span>
                             </div>
@@ -1440,11 +1448,8 @@
                             <div className="mt-4 flex items-center gap-3">
                               <div className="flex-1 h-2.5 bg-white/10 rounded-full overflow-hidden">
                                 <div
-                                  className="h-full rounded-full transition-all duration-700 ease-out"
-                                  style={{
-                                    width: `${projectStats.avgProgress}%`,
-                                    background: projectStats.avgProgress >= 80 ? 'linear-gradient(90deg, #10b981, #34d399)' : projectStats.avgProgress >= 40 ? 'linear-gradient(90deg, #06b6d4, #3b82f6)' : 'linear-gradient(90deg, #f59e0b, #f97316)'
-                                  }}
+                                  className="h-full rounded-full progress-bar transition-all duration-700 ease-out"
+                                  style={{ width: `${projectStats.avgProgress}%` }}
                                 />
                               </div>
                               <span className="text-xs font-mono text-slate-400 w-10 text-right">{projectStats.avgProgress}%</span>
@@ -1453,7 +1458,7 @@
                         </div>
                         <button
                           onClick={() => setShowNewTask(true)}
-                          className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition flex items-center gap-2 whitespace-nowrap self-start"
+                          className="px-4 py-2 btn-primary rounded-lg text-sm font-semibold transition flex items-center gap-2 whitespace-nowrap self-start"
                         >
                           <Plus className="w-4 h-4" />
                           Nova Tarefa
@@ -1477,7 +1482,7 @@
                             onChange={e => setSearchQuery(e.target.value)}
                             placeholder="Buscar tarefas, responsáveis..."
                             aria-label="Buscar tarefas"
-                            className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 placeholder-slate-500"
+                            className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary focus:ring-2 placeholder-slate-500"
                           />
                           {searchQuery && (
                             <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
@@ -1488,7 +1493,7 @@
                         <select
                           value={sortBy}
                           onChange={(e) => setSortBy(e.target.value)}
-                          className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 self-start"
+                          className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:ring-2 ring-primary focus:ring-2 self-start"
                           aria-label="Ordenar tarefas"
                         >
                           <option value="default" className="bg-slate-800">Ordenar por...</option>
@@ -1511,7 +1516,7 @@
                               onClick={() => setStatusFilter(f.value)}
                               className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
                                 statusFilter === f.value
-                                  ? 'bg-cyan-500 text-white'
+                                  ? 'tab-active text-white'
                                   : 'text-slate-400 hover:text-white hover:bg-white/10'
                               }`}
                             >
@@ -1531,7 +1536,7 @@
                               onClick={() => setPriorityFilter(f.value)}
                               className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
                                 priorityFilter === f.value
-                                  ? 'bg-cyan-500 text-white'
+                                  ? 'tab-active text-white'
                                   : 'text-slate-400 hover:text-white hover:bg-white/10'
                               }`}
                             >
@@ -1680,7 +1685,7 @@
                     <p className="text-slate-400 mb-4">Crie um novo projeto para começar</p>
                     <button
                       onClick={() => { setShowNewProject(true); setSidebarOpen(true); }}
-                      className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg text-sm font-semibold hover:shadow-lg transition"
+                      className="px-6 py-2 btn-primary rounded-lg text-sm font-semibold transition"
                     >
                       Criar Projeto
                     </button>
@@ -1847,7 +1852,7 @@
             <h2 className="text-lg font-bold">Projetos</h2>
             <button
               onClick={() => onToggleNewProject(true)}
-              className="w-8 h-8 rounded-lg bg-cyan-500 hover:bg-cyan-600 flex items-center justify-center transition"
+              className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center transition"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -1859,7 +1864,7 @@
               <Search className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
               <input type="text" value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}
                 placeholder="Filtrar projeto ou cliente..."
-                className="w-full pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/50 placeholder-slate-500" />
+                className="w-full pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs focus:outline-none focus:ring-2 ring-primary focus:ring-2 placeholder-slate-500" />
             </div>
           )}
 
@@ -1981,7 +1986,7 @@
             className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500" title="Prazo do projeto" />
           <ColorPicker value={form.color} onChange={(c) => setForm({ ...form, color: c })} />
           <div className="flex gap-2">
-            <button type="submit" className="flex-1 px-3 py-2 bg-cyan-500 hover:bg-cyan-600 rounded-lg text-sm font-medium transition">Criar</button>
+            <button type="submit" className="flex-1 px-3 py-2 bg-primary rounded-lg text-sm font-medium transition">Criar</button>
             <button type="button" onClick={onCancel} className="px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-medium transition">Cancelar</button>
           </div>
         </form>
@@ -2127,7 +2132,7 @@
               <input
                 type="text"
                 placeholder="Digitar tag e Enter..."
-                className="flex-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                className="flex-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary focus:ring-2"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && e.target.value.trim()) {
                     e.preventDefault();
@@ -2243,7 +2248,7 @@
               <input
                 type="text"
                 placeholder="Adicionar item..."
-                className="flex-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                className="flex-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary focus:ring-2"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && e.target.value.trim()) {
                     e.preventDefault();
@@ -2285,7 +2290,7 @@
                 <input
                   type="text"
                   placeholder="Adicionar nota..."
-                  className="flex-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  className="flex-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary focus:ring-2"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && e.target.value.trim()) {
                       e.preventDefault();
@@ -2302,7 +2307,7 @@
           <div className="flex gap-3 pt-2">
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg font-medium hover:shadow-lg transition"
+              className="flex-1 px-4 py-2 btn-primary rounded-lg font-medium transition"
             >
               {initialData ? 'Salvar' : 'Criar Tarefa'}
             </button>
@@ -2842,7 +2847,7 @@
                 <RichTextEditor value={form.briefing} onChange={(html) => setForm({ ...form, briefing: html })} placeholder="Escreva o briefing do projeto aqui..." />
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="submit" className="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg font-medium hover:shadow-lg transition">Salvar</button>
+                <button type="submit" className="flex-1 px-4 py-2 btn-primary rounded-lg font-medium transition">Salvar</button>
                 <button type="button" onClick={onClose} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg font-medium transition">Cancelar</button>
               </div>
             </form>
@@ -2932,7 +2937,7 @@
                 { key: 'byMember', label: 'Por Colaborador' },
               ].map(t => (
                 <button key={t.key} onClick={() => setTab(t.key)}
-                  className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition ${tab === t.key ? 'bg-cyan-500 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
+                  className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition ${tab === t.key ? 'tab-active text-white' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
                 >{t.label}</button>
               ))}
             </div>
@@ -2972,7 +2977,7 @@
                   <input type="date" value={manualForm.date} onChange={(e) => setManualForm({ ...manualForm, date: e.target.value })}
                     className="px-2 py-2 bg-white/10 border border-white/20 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
-                <button type="submit" className="w-full px-3 py-2 bg-cyan-500 hover:bg-cyan-600 rounded-lg text-xs font-medium transition">Registrar</button>
+                <button type="submit" className="w-full px-3 py-2 bg-primary rounded-lg text-xs font-medium transition">Registrar</button>
               </form>
             )}
 
@@ -3018,7 +3023,7 @@
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all" style={{ width: `${pct}%` }} />
+                            <div className="h-full rounded-full progress-bar transition-all" style={{ width: `${pct}%` }} />
                           </div>
                           <span className="text-xs text-slate-400 font-mono w-10 text-right">{pct}%</span>
                         </div>
@@ -3054,7 +3059,7 @@
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all" style={{ width: `${pct}%` }} />
+                            <div className="h-full rounded-full progress-bar transition-all" style={{ width: `${pct}%` }} />
                           </div>
                           <span className="text-xs text-slate-400 font-mono w-10 text-right">{pct}%</span>
                         </div>
@@ -3134,7 +3139,7 @@
                   ))}
                 </div>
               </div>
-              <button type="submit" className="w-full px-3 py-2 bg-cyan-500 hover:bg-cyan-600 rounded-lg text-sm font-medium transition">
+              <button type="submit" className="w-full px-3 py-2 bg-primary rounded-lg text-sm font-medium transition">
                 Adicionar Membro
               </button>
             </form>
@@ -3303,7 +3308,7 @@
                         {task.tags && task.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mb-2">
                             {task.tags.map((tag, i) => (
-                              <span key={i} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan-500/15 text-cyan-400">{tag}</span>
+                              <span key={i} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/15 text-primary">{tag}</span>
                             ))}
                           </div>
                         )}
