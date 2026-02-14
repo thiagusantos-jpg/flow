@@ -32,6 +32,7 @@
 
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
   <script>
     const firebaseConfig = {
@@ -44,6 +45,7 @@
       appId: "1:114510446369:web:ec791cffcea4d4cec00860"
     };
     const firebaseApp = firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
     const db = firebase.database();
   </script>
 
@@ -526,6 +528,18 @@
       </svg>
     );
 
+    const UserIcon = ({ className, ...props }) => (
+      <svg className={className} {...props} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>
+      </svg>
+    );
+
+    const LogOutIcon = ({ className, ...props }) => (
+      <svg className={className} {...props} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line>
+      </svg>
+    );
+
     // Lazy view wrapper - shows skeleton while heavy view mounts
     function LazyView({ children, fallbackHeight = 200 }) {
       const [ready, setReady] = useState(false);
@@ -770,25 +784,28 @@
     });
 
     // Firebase helpers
-    const saveToFirebase = (projectsData) => {
+    const saveToFirebase = (projectsData, prefix) => {
       try {
-        db.ref('projects').set(projectsData);
+        const path = prefix ? `${prefix}/projects` : 'projects';
+        db.ref(path).set(projectsData);
       } catch (e) {
         console.error('Erro ao salvar no Firebase:', e);
       }
     };
 
-    const saveTeamToFirebase = (teamData) => {
+    const saveTeamToFirebase = (teamData, prefix) => {
       try {
-        db.ref('team').set(teamData);
+        const path = prefix ? `${prefix}/team` : 'team';
+        db.ref(path).set(teamData);
       } catch (e) {
         console.error('Erro ao salvar equipe no Firebase:', e);
       }
     };
 
-    const saveTimeLogsToFirebase = (logs) => {
+    const saveTimeLogsToFirebase = (logs, prefix) => {
       try {
-        db.ref('timeLogs').set(logs);
+        const path = prefix ? `${prefix}/timeLogs` : 'timeLogs';
+        db.ref(path).set(logs);
       } catch (e) {
         console.error('Erro ao salvar time logs no Firebase:', e);
       }
@@ -810,9 +827,10 @@
       return m > 0 ? `${h}h ${m}min` : `${h}h`;
     };
 
-    const saveEmailConfigToFirebase = (config) => {
+    const saveEmailConfigToFirebase = (config, prefix) => {
       try {
-        db.ref('emailConfig').set(config);
+        const path = prefix ? `${prefix}/emailConfig` : 'emailConfig';
+        db.ref(path).set(config);
       } catch (e) {
         console.error('Erro ao salvar config email no Firebase:', e);
       }
@@ -840,7 +858,9 @@
     };
 
     // Main App Component
-    function ProjectManager() {
+    function ProjectManager({ currentUser, onLogout }) {
+      // Firebase paths: user-specific if logged in, shared if guest
+      const dbPrefix = currentUser ? `users/${currentUser.uid}` : '';
       const [projects, setProjects] = useState([]);
       const [selectedProject, setSelectedProject] = useState(null);
       const [view, setView] = useState('gantt');
@@ -945,13 +965,18 @@
       }, [editingTask, showNewTask, showNewProject, selectedProject, sidebarOpen]);
 
       // Firebase: real-time sync (load + listen for changes from other users)
+      // Uses user-specific paths when authenticated
       useEffect(() => {
-        const projectsRef = db.ref('projects');
+        const pPath = dbPrefix ? `${dbPrefix}/projects` : 'projects';
+        const tPath = dbPrefix ? `${dbPrefix}/team` : 'team';
+        const ePath = dbPrefix ? `${dbPrefix}/emailConfig` : 'emailConfig';
+        const tlPath = dbPrefix ? `${dbPrefix}/timeLogs` : 'timeLogs';
+
+        const projectsRef = db.ref(pPath);
 
         const handleData = (snapshot) => {
           const data = snapshot.val();
           if (data && Array.isArray(data) && data.length > 0) {
-            // Ensure tasks arrays exist (Firebase removes empty arrays)
             const cleaned = data.map(p => ({ ...p, tasks: p.tasks || [] }));
             skipNextSave.current = true;
             setProjects(cleaned);
@@ -961,12 +986,11 @@
             }
             setCloudStatus('synced');
           } else if (isFirstLoad.current) {
-            // Database is empty: create demo project
             const demo = createDemoProject();
             const initial = [demo];
             setProjects(initial);
             setSelectedProject(demo.id);
-            saveToFirebase(initial);
+            saveToFirebase(initial, dbPrefix);
             isFirstLoad.current = false;
             setCloudStatus('synced');
           }
@@ -975,7 +999,6 @@
         const handleError = (error) => {
           console.error('Firebase error:', error);
           setCloudStatus('offline');
-          // Fallback to localStorage
           if (isFirstLoad.current) {
             const saved = localStorage.getItem('projectflow-projects');
             if (saved) {
@@ -998,19 +1021,13 @@
 
         projectsRef.on('value', handleData, handleError);
 
-        // Monitor connection status
         const connRef = db.ref('.info/connected');
         const connHandler = (snap) => {
-          if (snap.val() === true) {
-            setCloudStatus('synced');
-          } else {
-            setCloudStatus('offline');
-          }
+          setCloudStatus(snap.val() === true ? 'synced' : 'offline');
         };
         connRef.on('value', connHandler);
 
-        // Team sync
-        const teamRef = db.ref('team');
+        const teamRef = db.ref(tPath);
         const handleTeamData = (snapshot) => {
           const data = snapshot.val();
           if (data && Array.isArray(data)) {
@@ -1020,16 +1037,14 @@
         };
         teamRef.on('value', handleTeamData);
 
-        // Email config sync
-        const emailRef = db.ref('emailConfig');
+        const emailRef = db.ref(ePath);
         const handleEmailConfig = (snapshot) => {
           const data = snapshot.val();
           if (data) setEmailConfig(data);
         };
         emailRef.on('value', handleEmailConfig);
 
-        // Time logs sync
-        const timeRef = db.ref('timeLogs');
+        const timeRef = db.ref(tlPath);
         const handleTimeLogs = (snapshot) => {
           const data = snapshot.val();
           if (data && Array.isArray(data)) {
@@ -1089,7 +1104,7 @@
           return;
         }
         if (timeLogs.length > 0) {
-          saveTimeLogsToFirebase(timeLogs);
+          saveTimeLogsToFirebase(timeLogs, dbPrefix);
         }
       }, [timeLogs]);
 
@@ -1137,11 +1152,12 @@
           return;
         }
         if (team.length > 0 || !isFirstLoad.current) {
-          saveTeamToFirebase(team);
+          saveTeamToFirebase(team, dbPrefix);
         }
       }, [team]);
 
-      // Save to Firebase + localStorage whenever projects change
+      // Save to Firebase + localStorage whenever projects change + auto-versioning
+      const lastBackupTime = useRef(0);
       useEffect(() => {
         if (isFirstLoad.current) return;
         if (skipNextSave.current) {
@@ -1149,8 +1165,29 @@
           return;
         }
         // Save to both Firebase and localStorage
-        saveToFirebase(projects);
+        saveToFirebase(projects, dbPrefix);
         localStorage.setItem('projectflow-projects', JSON.stringify(projects));
+
+        // Auto-version backup every 10 minutes (max 5 versions)
+        const now = Date.now();
+        if (now - lastBackupTime.current > 10 * 60 * 1000 && projects.length > 0) {
+          lastBackupTime.current = now;
+          try {
+            const versions = JSON.parse(localStorage.getItem('pf_backup_versions') || '[]');
+            const snapshot = {
+              id: now,
+              date: new Date().toISOString(),
+              label: `Auto-backup`,
+              projectCount: projects.length,
+              taskCount: projects.reduce((a, p) => a + (p.tasks?.length || 0), 0),
+              data: JSON.stringify(projects),
+            };
+            versions.unshift(snapshot);
+            // Keep max 5 versions
+            while (versions.length > 5) versions.pop();
+            localStorage.setItem('pf_backup_versions', JSON.stringify(versions));
+          } catch (e) { console.warn('Backup version error:', e); }
+        }
       }, [projects]);
 
       const currentProject = projects.find(p => p.id === selectedProject);
@@ -1303,19 +1340,42 @@
       };
 
       // Export projects as JSON
-      const exportData = () => {
-        const data = JSON.stringify(projects, null, 2);
-        const blob = new Blob([data], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `projectflow-backup-${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast('Backup exportado com sucesso', 'success');
+      const exportData = (compressed = false) => {
+        const payload = {
+          version: 2,
+          exportedAt: new Date().toISOString(),
+          projects,
+          team,
+          timeLogs,
+          settings: appSettings,
+        };
+        if (compressed) {
+          // Compact JSON (no whitespace) + base64 for smaller file
+          const compact = JSON.stringify(payload);
+          const blob = new Blob([compact], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `projectflow-backup-${new Date().toISOString().split('T')[0]}.min.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+          const sizeKB = (compact.length / 1024).toFixed(1);
+          showToast(`Backup compacto exportado (${sizeKB} KB)`, 'success');
+        } else {
+          const data = JSON.stringify(payload, null, 2);
+          const blob = new Blob([data], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `projectflow-backup-${new Date().toISOString().split('T')[0]}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+          showToast('Backup exportado com sucesso', 'success');
+        }
+        addActivity('Backup exportado', compressed ? 'compacto' : 'completo');
       };
 
-      // Import projects from JSON
+      // Import projects from JSON (supports v1 array and v2 object)
       const importData = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -1323,7 +1383,17 @@
         reader.onload = (ev) => {
           try {
             const parsed = JSON.parse(ev.target.result);
-            if (Array.isArray(parsed) && parsed.length > 0) {
+            // v2 format: { version, projects, team, timeLogs, settings }
+            if (parsed.version && parsed.projects) {
+              setProjects(parsed.projects);
+              setSelectedProject(parsed.projects[0]?.id);
+              if (parsed.team) setTeam(parsed.team);
+              if (parsed.timeLogs) setTimeLogs(parsed.timeLogs);
+              if (parsed.settings) setAppSettings(parsed.settings);
+              showToast(`${parsed.projects.length} projeto(s) importado(s) (v${parsed.version})`, 'success');
+            }
+            // v1 format: plain array of projects
+            else if (Array.isArray(parsed) && parsed.length > 0) {
               setProjects(parsed);
               setSelectedProject(parsed[0].id);
               showToast(`${parsed.length} projeto(s) importado(s)`, 'success');
@@ -1396,6 +1466,28 @@
                 <input ref={fileInputRef} type="file" accept=".json" onChange={importData} className="hidden" />
                 <div className="w-px h-5 bg-white/10 mx-1 hidden sm:block" />
                 <button onClick={() => setShowSettings(true)} data-tooltip="Configuracoes" className={`p-2 rounded-lg ${showSettings ? 'icon-active' : 'header-icon'}`}><SettingsIcon className="w-4 h-4" /></button>
+                {currentUser && (
+                  <>
+                    <div className="w-px h-5 bg-white/10 mx-1 hidden sm:block" />
+                    <div className="flex items-center gap-2">
+                      <div className="hidden sm:flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5">
+                        {currentUser.photoURL ? (
+                          <img src={currentUser.photoURL} alt="" className="w-5 h-5 rounded-full" />
+                        ) : (
+                          <UserIcon className="w-4 h-4 text-slate-400" />
+                        )}
+                        <span className="text-xs text-slate-300 max-w-[100px] truncate">{currentUser.displayName || currentUser.email || 'Usuário'}</span>
+                      </div>
+                      <button onClick={onLogout} data-tooltip="Sair" className="p-2 rounded-lg header-icon"><LogOutIcon className="w-4 h-4" /></button>
+                    </div>
+                  </>
+                )}
+                {!currentUser && (
+                  <div className="hidden sm:flex items-center gap-1 ml-1">
+                    <div className="w-px h-5 bg-white/10 mx-1" />
+                    <span className="text-xs text-slate-500 italic">Modo convidado</span>
+                  </div>
+                )}
               </div>
             </div>
           </header>
@@ -1499,10 +1591,42 @@
                           <p className="text-xs text-slate-500">{projects.length} projeto(s) | {projects.reduce((a,p) => a + p.tasks.length, 0)} tarefa(s) | {team.length} membro(s)</p>
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => { exportData(); }} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs transition">Exportar</button>
+                          <button onClick={() => exportData(false)} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs transition">Exportar</button>
+                          <button onClick={() => exportData(true)} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs transition" title="JSON compacto, arquivo menor">Compacto</button>
                           <button onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs transition">Importar</button>
                         </div>
                       </div>
+                      {/* Backup Versions */}
+                      {(() => {
+                        try {
+                          const versions = JSON.parse(localStorage.getItem('pf_backup_versions') || '[]');
+                          if (versions.length === 0) return null;
+                          return (
+                            <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                              <p className="text-sm font-medium mb-2">Versoes de Backup ({versions.length})</p>
+                              <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                                {versions.map(v => (
+                                  <div key={v.id} className="flex items-center justify-between text-xs p-2 bg-white/5 rounded-lg">
+                                    <div>
+                                      <span className="text-slate-300">{new Date(v.date).toLocaleString('pt-BR')}</span>
+                                      <span className="text-slate-500 ml-2">{v.projectCount}p / {v.taskCount}t</span>
+                                    </div>
+                                    <button onClick={() => {
+                                      const parsed = JSON.parse(v.data);
+                                      if (Array.isArray(parsed) && parsed.length > 0) {
+                                        setProjects(parsed);
+                                        setSelectedProject(parsed[0].id);
+                                        showToast(`Restaurado backup de ${new Date(v.date).toLocaleString('pt-BR')}`, 'success');
+                                        addActivity('Backup restaurado', new Date(v.date).toLocaleString('pt-BR'));
+                                      }
+                                    }} className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded text-xs transition">Restaurar</button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        } catch { return null; }
+                      })()}
                       <button onClick={() => { setAppSettings({ companyName: 'ProjectFlow', companyTagline: 'Gestao Visual de Projetos', logoUrl: '', primaryColor: '#06b6d4', accentColor: '#3b82f6', bgColor: '#0f172a' }); showToast('Configuracoes restauradas', 'success'); }} className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs transition">
                         Restaurar Padroes
                       </button>
@@ -1936,7 +2060,7 @@
               team={team}
               setTeam={setTeam}
               emailConfig={emailConfig}
-              setEmailConfig={(config) => { setEmailConfig(config); saveEmailConfigToFirebase(config); }}
+              setEmailConfig={(config) => { setEmailConfig(config); saveEmailConfigToFirebase(config, dbPrefix); }}
               onClose={() => setShowTeamManager(false)}
               showToast={showToast}
               showConfirm={showConfirm}
@@ -3894,9 +4018,149 @@
       );
     }
 
+    // Auth Screen - Login/Register
+    function AuthScreen({ onLogin }) {
+      const [mode, setMode] = useState('login'); // login | register
+      const [email, setEmail] = useState('');
+      const [password, setPassword] = useState('');
+      const [name, setName] = useState('');
+      const [error, setError] = useState('');
+      const [loading, setLoading] = useState(false);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+        try {
+          if (mode === 'register') {
+            const cred = await auth.createUserWithEmailAndPassword(email, password);
+            if (name) await cred.user.updateProfile({ displayName: name });
+          } else {
+            await auth.signInWithEmailAndPassword(email, password);
+          }
+        } catch (err) {
+          const msgs = {
+            'auth/email-already-in-use': 'Este email ja esta em uso',
+            'auth/invalid-email': 'Email invalido',
+            'auth/weak-password': 'Senha deve ter pelo menos 6 caracteres',
+            'auth/user-not-found': 'Usuario nao encontrado',
+            'auth/wrong-password': 'Senha incorreta',
+            'auth/invalid-credential': 'Email ou senha incorretos',
+            'auth/too-many-requests': 'Muitas tentativas. Tente novamente depois',
+          };
+          setError(msgs[err.code] || err.message);
+        }
+        setLoading(false);
+      };
+
+      const handleGoogle = async () => {
+        setError('');
+        setLoading(true);
+        try {
+          const provider = new firebase.auth.GoogleAuthProvider();
+          await auth.signInWithPopup(provider);
+        } catch (err) {
+          if (err.code !== 'auth/popup-closed-by-user') {
+            setError(err.message);
+          }
+        }
+        setLoading(false);
+      };
+
+      const handleGuest = () => {
+        onLogin(null); // null = guest mode
+      };
+
+      return (
+        <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b, #0f172a)' }}>
+          <div className="glass rounded-2xl p-8 max-w-sm w-full animate-scale-in">
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl">🚀</span>
+              </div>
+              <h1 className="text-2xl font-bold text-white">ProjectFlow</h1>
+              <p className="text-sm text-slate-400 mt-1">Gestao Visual de Projetos</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-3">
+              {mode === 'register' && (
+                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome"
+                  className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
+              )}
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required
+                className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Senha" required minLength={6}
+                className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
+              {error && <p className="text-red-400 text-xs">{error}</p>}
+              <button type="submit" disabled={loading}
+                className="w-full py-2.5 btn-primary rounded-lg text-sm font-semibold transition disabled:opacity-50">
+                {loading ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar Conta'}
+              </button>
+            </form>
+
+            <div className="my-4 flex items-center gap-3">
+              <div className="flex-1 h-px bg-white/10" /><span className="text-xs text-slate-500">ou</span><div className="flex-1 h-px bg-white/10" />
+            </div>
+
+            <button onClick={handleGoogle} disabled={loading}
+              className="w-full py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm font-medium text-white hover:bg-white/10 transition flex items-center justify-center gap-2 disabled:opacity-50 mb-2">
+              <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+              Entrar com Google
+            </button>
+
+            <button onClick={handleGuest} className="w-full py-2 text-xs text-slate-500 hover:text-slate-300 transition">
+              Continuar sem conta (modo local)
+            </button>
+
+            <div className="text-center mt-4">
+              {mode === 'login' ? (
+                <p className="text-xs text-slate-500">Nao tem conta? <button onClick={() => { setMode('register'); setError(''); }} className="text-primary hover:underline">Criar conta</button></p>
+              ) : (
+                <p className="text-xs text-slate-500">Ja tem conta? <button onClick={() => { setMode('login'); setError(''); }} className="text-primary hover:underline">Entrar</button></p>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Auth Gate - wraps the app with authentication
+    function AuthGate() {
+      const [user, setUser] = useState(undefined); // undefined=loading, null=guest, object=logged
+      const [guestMode, setGuestMode] = useState(false);
+
+      useEffect(() => {
+        const unsub = auth.onAuthStateChanged((u) => {
+          setUser(u || null);
+        });
+        return unsub;
+      }, []);
+
+      // Still loading auth state
+      if (user === undefined && !guestMode) {
+        return (
+          <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b, #0f172a)' }}>
+            <div className="text-center animate-fade-in">
+              <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-3 animate-pulse">
+                <span className="text-2xl">🚀</span>
+              </div>
+              <p className="text-sm text-slate-400">Carregando...</p>
+            </div>
+          </div>
+        );
+      }
+
+      // Not logged in and not guest
+      if (!user && !guestMode) {
+        return <AuthScreen onLogin={(u) => { if (u === null) setGuestMode(true); }} />;
+      }
+
+      return <ProjectManager currentUser={user} onLogout={() => { auth.signOut(); setGuestMode(false); }} />;
+    }
+
     // Render the app
     const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<ProjectManager />);
+    root.render(<AuthGate />);
   </script>
 </body>
 </html>
