@@ -4019,13 +4019,20 @@
     }
 
     // Auth Screen - Login/Register
-    function AuthScreen({ onLogin }) {
+    function AuthScreen({ onLogin, authAvailable = true }) {
       const [mode, setMode] = useState('login'); // login | register
       const [email, setEmail] = useState('');
       const [password, setPassword] = useState('');
       const [name, setName] = useState('');
       const [error, setError] = useState('');
       const [loading, setLoading] = useState(false);
+      const [showSetup, setShowSetup] = useState(false);
+
+      const isAuthError = (code) => {
+        return code === 'auth/configuration-not-found' || code === 'auth/internal-error' || code === 'auth/network-request-failed';
+      };
+
+      const authNotConfiguredMsg = 'Autenticacao Firebase nao configurada. Use o modo local ou configure o Firebase Auth no console.';
 
       const handleSubmit = async (e) => {
         e.preventDefault();
@@ -4039,16 +4046,21 @@
             await auth.signInWithEmailAndPassword(email, password);
           }
         } catch (err) {
-          const msgs = {
-            'auth/email-already-in-use': 'Este email ja esta em uso',
-            'auth/invalid-email': 'Email invalido',
-            'auth/weak-password': 'Senha deve ter pelo menos 6 caracteres',
-            'auth/user-not-found': 'Usuario nao encontrado',
-            'auth/wrong-password': 'Senha incorreta',
-            'auth/invalid-credential': 'Email ou senha incorretos',
-            'auth/too-many-requests': 'Muitas tentativas. Tente novamente depois',
-          };
-          setError(msgs[err.code] || err.message);
+          if (isAuthError(err.code)) {
+            setError(authNotConfiguredMsg);
+            setShowSetup(true);
+          } else {
+            const msgs = {
+              'auth/email-already-in-use': 'Este email ja esta em uso',
+              'auth/invalid-email': 'Email invalido',
+              'auth/weak-password': 'Senha deve ter pelo menos 6 caracteres',
+              'auth/user-not-found': 'Usuario nao encontrado',
+              'auth/wrong-password': 'Senha incorreta',
+              'auth/invalid-credential': 'Email ou senha incorretos',
+              'auth/too-many-requests': 'Muitas tentativas. Tente novamente depois',
+            };
+            setError(msgs[err.code] || `Firebase: Error (${err.code}).`);
+          }
         }
         setLoading(false);
       };
@@ -4060,8 +4072,13 @@
           const provider = new firebase.auth.GoogleAuthProvider();
           await auth.signInWithPopup(provider);
         } catch (err) {
-          if (err.code !== 'auth/popup-closed-by-user') {
-            setError(err.message);
+          if (err.code === 'auth/popup-closed-by-user') {
+            // user closed popup, do nothing
+          } else if (isAuthError(err.code)) {
+            setError(authNotConfiguredMsg);
+            setShowSetup(true);
+          } else {
+            setError(`Firebase: Error (${err.code}).`);
           }
         }
         setLoading(false);
@@ -4081,6 +4098,20 @@
               <h1 className="text-2xl font-bold text-white">ProjectFlow</h1>
               <p className="text-sm text-slate-400 mt-1">Gestao Visual de Projetos</p>
             </div>
+
+            {showSetup && (
+              <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <p className="text-amber-300 text-xs font-semibold mb-2">Como ativar o Firebase Auth:</p>
+                <ol className="text-amber-200/80 text-[11px] space-y-1 list-decimal list-inside">
+                  <li>Acesse <span className="font-mono text-amber-300">console.firebase.google.com</span></li>
+                  <li>Selecione o projeto <span className="font-mono text-amber-300">projectflow-e22cc</span></li>
+                  <li>No menu lateral, clique em <strong>Authentication</strong></li>
+                  <li>Clique em <strong>Comecar</strong> (Get Started)</li>
+                  <li>Ative <strong>Email/Senha</strong> e/ou <strong>Google</strong></li>
+                </ol>
+                <p className="text-amber-200/60 text-[10px] mt-2">Enquanto isso, use o modo local abaixo.</p>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-3">
               {mode === 'register' && (
@@ -4108,7 +4139,7 @@
               Entrar com Google
             </button>
 
-            <button onClick={handleGuest} className="w-full py-2 text-xs text-slate-500 hover:text-slate-300 transition">
+            <button onClick={handleGuest} className="w-full py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-sm font-medium text-emerald-400 hover:bg-emerald-500/20 transition">
               Continuar sem conta (modo local)
             </button>
 
@@ -4128,12 +4159,33 @@
     function AuthGate() {
       const [user, setUser] = useState(undefined); // undefined=loading, null=guest, object=logged
       const [guestMode, setGuestMode] = useState(false);
+      const [authReady, setAuthReady] = useState(false);
+      const [authAvailable, setAuthAvailable] = useState(true);
 
       useEffect(() => {
+        // Test if Firebase Auth is properly configured
+        const timeout = setTimeout(() => {
+          // If onAuthStateChanged hasn't fired in 3s, auth may not be configured
+          if (!authReady) {
+            setAuthAvailable(false);
+            setGuestMode(true);
+          }
+        }, 3000);
+
         const unsub = auth.onAuthStateChanged((u) => {
+          clearTimeout(timeout);
+          setAuthReady(true);
+          setAuthAvailable(true);
           setUser(u || null);
+        }, (error) => {
+          // Auth error - likely not configured
+          clearTimeout(timeout);
+          setAuthReady(true);
+          setAuthAvailable(false);
+          setGuestMode(true);
         });
-        return unsub;
+
+        return () => { unsub(); clearTimeout(timeout); };
       }, []);
 
       // Still loading auth state
@@ -4152,7 +4204,7 @@
 
       // Not logged in and not guest
       if (!user && !guestMode) {
-        return <AuthScreen onLogin={(u) => { if (u === null) setGuestMode(true); }} />;
+        return <AuthScreen onLogin={(u) => { if (u === null) setGuestMode(true); }} authAvailable={authAvailable} />;
       }
 
       return <ProjectManager currentUser={user} onLogout={() => { auth.signOut(); setGuestMode(false); }} />;
