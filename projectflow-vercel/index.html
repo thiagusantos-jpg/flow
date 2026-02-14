@@ -103,7 +103,9 @@
       opacity: 1;
       transform: translateX(-50%) scale(1);
     }
-    .icon-active { background: rgba(255,255,255,0.1); color: white !important; }
+    .icon-active { background: color-mix(in srgb, var(--pf-primary) 20%, transparent); color: var(--pf-primary) !important; }
+    .header-icon { color: #94a3b8; transition: all 0.2s; }
+    .header-icon:hover { background: color-mix(in srgb, var(--pf-primary) 15%, transparent); color: var(--pf-primary) !important; }
     /* Toast stack */
     @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
     @keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
@@ -1343,20 +1345,20 @@
                 <kbd className="ml-auto text-[10px] text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">Ctrl+K</kbd>
               </button>
               <div className="flex items-center gap-1">
-                <button onClick={() => setShowGlobalSearch(true)} data-tooltip="Buscar (Ctrl+K)" className="sm:hidden p-2 hover:bg-white/10 rounded-lg transition text-slate-400"><Search className="w-4 h-4" /></button>
-                <button onClick={() => setShowTeamManager(true)} data-tooltip="Equipe" className={`p-2 rounded-lg transition ${showTeamManager ? 'icon-active' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}><Users className="w-4 h-4" /></button>
-                <button onClick={() => setShowTimesheet(true)} data-tooltip="Timesheet" className={`p-2 rounded-lg transition ${showTimesheet ? 'icon-active' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}><Clock className="w-4 h-4" /></button>
-                <button onClick={() => { setShowActivityLog(true); setUnreadActivities(0); }} data-tooltip="Atividades" className={`relative p-2 rounded-lg transition ${showActivityLog ? 'icon-active' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}>
+                <button onClick={() => setShowGlobalSearch(true)} data-tooltip="Buscar (Ctrl+K)" className="sm:hidden p-2 rounded-lg header-icon"><Search className="w-4 h-4" /></button>
+                <button onClick={() => setShowTeamManager(true)} data-tooltip="Equipe" className={`p-2 rounded-lg ${showTeamManager ? 'icon-active' : 'header-icon'}`}><Users className="w-4 h-4" /></button>
+                <button onClick={() => setShowTimesheet(true)} data-tooltip="Timesheet" className={`p-2 rounded-lg ${showTimesheet ? 'icon-active' : 'header-icon'}`}><Clock className="w-4 h-4" /></button>
+                <button onClick={() => { setShowActivityLog(true); setUnreadActivities(0); }} data-tooltip="Atividades" className={`relative p-2 rounded-lg ${showActivityLog ? 'icon-active' : 'header-icon'}`}>
                   <Bell className="w-4 h-4" />
                   {unreadActivities > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold text-white badge-pulse" style={{ background: '#ef4444' }}>{unreadActivities > 9 ? '9+' : unreadActivities}</span>}
                 </button>
                 <CloudStatusBadge status={cloudStatus} />
                 <div className="w-px h-5 bg-white/10 mx-1 hidden sm:block" />
-                <button onClick={exportData} data-tooltip="Exportar" className="hidden sm:block p-2 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white"><Download className="w-4 h-4" /></button>
-                <button onClick={() => fileInputRef.current?.click()} data-tooltip="Importar" className="hidden sm:block p-2 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white"><Upload className="w-4 h-4" /></button>
+                <button onClick={exportData} data-tooltip="Exportar" className="hidden sm:block p-2 rounded-lg header-icon"><Download className="w-4 h-4" /></button>
+                <button onClick={() => fileInputRef.current?.click()} data-tooltip="Importar" className="hidden sm:block p-2 rounded-lg header-icon"><Upload className="w-4 h-4" /></button>
                 <input ref={fileInputRef} type="file" accept=".json" onChange={importData} className="hidden" />
                 <div className="w-px h-5 bg-white/10 mx-1 hidden sm:block" />
-                <button onClick={() => setShowSettings(true)} data-tooltip="Configuracoes" className={`p-2 rounded-lg transition ${showSettings ? 'icon-active' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}><SettingsIcon className="w-4 h-4" /></button>
+                <button onClick={() => setShowSettings(true)} data-tooltip="Configuracoes" className={`p-2 rounded-lg ${showSettings ? 'icon-active' : 'header-icon'}`}><SettingsIcon className="w-4 h-4" /></button>
               </div>
             </div>
           </header>
@@ -1555,10 +1557,10 @@
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-1">
                             <h2 className="text-2xl sm:text-3xl font-bold">{currentProject.name}</h2>
-                            <button onClick={() => setEditingProject(currentProject)} className="p-1.5 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white" title="Editar projeto" aria-label="Editar projeto">
+                            <button onClick={() => setEditingProject(currentProject)} className="p-1.5 rounded-lg header-icon" title="Editar projeto" aria-label="Editar projeto">
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button onClick={() => window.print()} className="p-1.5 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white no-print" title="Imprimir relatório" aria-label="Imprimir relatório">
+                            <button onClick={() => window.print()} className="p-1.5 rounded-lg header-icon no-print" title="Imprimir relatório" aria-label="Imprimir relatório">
                               <Download className="w-4 h-4" />
                             </button>
                           </div>
@@ -1629,7 +1631,7 @@
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 whitespace-nowrap ${
                             view === v.key
                               ? 'tab-active text-white shadow-lg'
-                              : 'text-slate-400 hover:bg-white/10 hover:text-white'
+                              : 'header-icon'
                           }`}
                         >
                           <span>{v.icon}</span>
@@ -1689,7 +1691,7 @@
                               className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
                                 statusFilter === f.value
                                   ? 'tab-active text-white'
-                                  : 'text-slate-400 hover:text-white hover:bg-white/10'
+                                  : 'header-icon'
                               }`}
                             >
                               {f.label}
@@ -1709,7 +1711,7 @@
                               className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
                                 priorityFilter === f.value
                                   ? 'tab-active text-white'
-                                  : 'text-slate-400 hover:text-white hover:bg-white/10'
+                                  : 'header-icon'
                               }`}
                             >
                               {f.label}
@@ -3174,7 +3176,7 @@
                 { key: 'byMember', label: 'Por Colaborador' },
               ].map(t => (
                 <button key={t.key} onClick={() => setTab(t.key)}
-                  className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition ${tab === t.key ? 'tab-active text-white' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
+                  className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition ${tab === t.key ? 'tab-active text-white' : 'header-icon'}`}
                 >{t.label}</button>
               ))}
             </div>
