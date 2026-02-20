@@ -401,7 +401,36 @@
   </style>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <!-- Fallback content shown while scripts load or if they fail -->
+    <div id="loading-fallback" style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f172a,#1e293b,#0f172a);color:white;font-family:sans-serif;">
+      <div style="text-align:center;">
+        <div style="font-size:48px;margin-bottom:16px;">🚀</div>
+        <h1 style="font-size:24px;margin-bottom:8px;">ProjectFlow</h1>
+        <p style="color:#94a3b8;font-size:14px;">Carregando aplicação...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error handler: catches script loading failures and shows user-friendly message -->
+  <script>
+    window.addEventListener('error', function(e) {
+      if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+        var root = document.getElementById('root');
+        if (root) {
+          root.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f172a,#1e293b,#0f172a);color:white;font-family:sans-serif;padding:20px;"><div style="text-align:center;max-width:500px;"><div style="font-size:48px;margin-bottom:16px;">⚠️</div><h1 style="font-size:20px;margin-bottom:12px;">Erro ao carregar</h1><p style="color:#94a3b8;font-size:14px;margin-bottom:20px;">Não foi possível carregar um recurso necessário. Isso pode ser causado por bloqueio de scripts ou conexão instável.</p><button onclick="location.reload()" style="padding:10px 24px;background:#06b6d4;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;">Tentar novamente</button></div></div>';
+        }
+      }
+    }, true);
+    // Also catch unhandled JS errors
+    window.onerror = function(msg, url, line) {
+      console.error('ProjectFlow Error:', msg, 'at', url, 'line', line);
+      var fb = document.getElementById('loading-fallback');
+      if (fb) {
+        fb.innerHTML = '<div style="text-align:center;"><div style="font-size:48px;margin-bottom:16px;">⚠️</div><h1 style="font-size:20px;margin-bottom:12px;">Erro na aplicação</h1><p style="color:#94a3b8;font-size:14px;margin-bottom:8px;">Ocorreu um erro ao iniciar o ProjectFlow.</p><p style="color:#64748b;font-size:12px;margin-bottom:20px;">Erro: ' + msg + '</p><button onclick="location.reload()" style="padding:10px 24px;background:#06b6d4;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;">Recarregar</button></div>';
+      }
+    };
+  </script>
 
   <script type="text/babel">
     const { useState, useEffect, useCallback, useRef, useMemo } = React;
@@ -2396,13 +2425,13 @@
 
       return (
         <form onSubmit={handleSubmit} className="mt-4 p-4 bg-white/5 rounded-xl animate-scale-in space-y-3">
-          <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+          <input id="project-name" name="project-name" type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="Nome do projeto" className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary" autoFocus required />
-          <input type="text" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })}
+          <input id="project-client" name="project-client" type="text" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })}
             placeholder="Nome do cliente" className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary" />
-          <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+          <input id="project-description" name="project-description" type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
             placeholder="Descrição breve" className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary" />
-          <input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+          <input id="project-deadline" name="project-deadline" type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })}
             className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-xs focus:outline-none focus:ring-2 ring-primary" title="Prazo do projeto" />
           <ColorPicker value={form.color} onChange={(c) => setForm({ ...form, color: c })} />
           <div className="flex gap-2">
@@ -2444,6 +2473,8 @@
           <div>
             <label className="block text-sm font-medium mb-2">Nome da Tarefa</label>
             <input aria-required="true"
+              id="task-name"
+              name="task-name"
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -2457,6 +2488,8 @@
           <div>
             <label className="block text-sm font-medium mb-2">Descrição</label>
             <textarea
+              id="task-description"
+              name="task-description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 ring-primary resize-none"
@@ -2467,8 +2500,10 @@
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Data Início</label>
+              <label htmlFor="task-start" className="block text-sm font-medium mb-2">Data Início</label>
               <input
+                id="task-start"
+                name="task-start"
                 type="date"
                 value={formData.start}
                 onChange={(e) => setFormData({ ...formData, start: e.target.value })}
@@ -2477,8 +2512,10 @@
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Data Fim</label>
+              <label htmlFor="task-end" className="block text-sm font-medium mb-2">Data Fim</label>
               <input
+                id="task-end"
+                name="task-end"
                 type="date"
                 value={formData.end}
                 onChange={(e) => setFormData({ ...formData, end: e.target.value })}
@@ -2492,6 +2529,8 @@
             <label className="block text-sm font-medium mb-2">Responsável</label>
             {team && team.length > 0 ? (
               <select
+                id="task-assignee"
+                name="task-assignee"
                 value={formData.assignee}
                 onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
                 className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 ring-primary"
@@ -2503,6 +2542,8 @@
               </select>
             ) : (
               <input
+                id="task-assignee"
+                name="task-assignee"
                 type="text"
                 value={formData.assignee}
                 onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
@@ -4169,12 +4210,12 @@
 
             <form onSubmit={handleSubmit} className="space-y-3">
               {mode === 'register' && (
-                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome"
+                <input id="auth-name" name="name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome"
                   className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
               )}
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required
+              <input id="auth-email" name="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required
                 className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Senha" required minLength={6}
+              <input id="auth-password" name="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Senha" required minLength={6}
                 className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
               {error && <p className="text-red-400 text-xs">{error}</p>}
               <button type="submit" disabled={loading}
