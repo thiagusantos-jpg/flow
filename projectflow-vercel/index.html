@@ -946,7 +946,7 @@
       const dbPrefix = currentUser ? `users/${currentUser.uid}` : '';
       const [projects, setProjects] = useState([]);
       const [selectedProject, setSelectedProject] = useState(null);
-      const [view, setView] = useState('gantt');
+      const [view, setView] = useState('home');
       const [showNewProject, setShowNewProject] = useState(false);
       const [showNewTask, setShowNewTask] = useState(false);
       const [editingTask, setEditingTask] = useState(null);
@@ -1159,7 +1159,8 @@
           // Skip if user is typing in an input/textarea/contenteditable
           if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
           const key = e.key.toLowerCase();
-          if (key === '1') setView('gantt');
+          if (key === '0') { setView('home'); setSelectedProject(null); }
+          else if (key === '1') setView('gantt');
           else if (key === '2') setView('list');
           else if (key === '3') setView('kanban');
           else if (key === '4') setView('calendar');
@@ -1753,7 +1754,7 @@
                 <ProjectSidebar
                   projects={projects}
                   selectedProject={selectedProject}
-                  onSelectProject={setSelectedProject}
+                  onSelectProject={(id) => { setSelectedProject(id); if (view === 'home') setView('gantt'); }}
                   onDeleteProject={deleteProject}
                   showNewProject={showNewProject}
                   onToggleNewProject={setShowNewProject}
@@ -1779,7 +1780,7 @@
                 <ProjectSidebar
                   projects={projects}
                   selectedProject={selectedProject}
-                  onSelectProject={(id) => { setSelectedProject(id); setSidebarOpen(false); }}
+                  onSelectProject={(id) => { setSelectedProject(id); setSidebarOpen(false); if (view === 'home') setView('gantt'); }}
                   onDeleteProject={deleteProject}
                   showNewProject={showNewProject}
                   onToggleNewProject={setShowNewProject}
@@ -1794,7 +1795,7 @@
               {/* Main Content */}
               <main className="flex-1 min-w-0 animate-slide-in" style={{ animationDelay: '0.2s' }}>
                 {view === 'home' ? (
-                  <HomeView projects={projects} currentUser={currentUser} onSelectProject={setSelectedProject} onEditTask={setEditingTask} timeLogs={timeLogs} />
+                  <HomeView projects={projects} currentUser={currentUser} onSelectProject={(id) => { setSelectedProject(id); setView('gantt'); }} onEditTask={(task) => { setEditingTask(task); setView('gantt'); }} timeLogs={timeLogs} />
                 ) : currentProject ? (
                   <>
                     {/* Project Header with Stats */}
