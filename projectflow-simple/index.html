@@ -623,6 +623,19 @@
       </svg>
     );
 
+    const ShieldIcon = ({ className, ...props }) => (
+      <svg className={className} {...props} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+      </svg>
+    );
+
+    // Role permission system
+    const roleConfig = {
+      admin:  { label: 'Admin',  icon: '🔴', class: 'bg-red-500/20 text-red-400',     canManageUsers: true,  canEditAll: true,  canViewMetrics: true  },
+      member: { label: 'Membro', icon: '🔵', class: 'bg-blue-500/20 text-blue-400',    canManageUsers: false, canEditAll: false, canViewMetrics: true  },
+      viewer: { label: 'Viewer', icon: '⚫', class: 'bg-slate-500/20 text-slate-400',   canManageUsers: false, canEditAll: false, canViewMetrics: false },
+    };
+
     // Lazy view wrapper - shows skeleton while heavy view mounts
     function LazyView({ children, fallbackHeight = 200 }) {
       const [ready, setReady] = useState(false);
@@ -974,6 +987,9 @@
       const [activityLog, setActivityLog] = useState([]);
       const [showActivityLog, setShowActivityLog] = useState(false);
       const [showSettings, setShowSettings] = useState(false);
+      const [showAdminPanel, setShowAdminPanel] = useState(false);
+      const [currentUserRole, setCurrentUserRole] = useState(null);
+      const [allUsers, setAllUsers] = useState([]);
       const [appSettings, setAppSettings] = useState(() => {
         try {
           const saved = localStorage.getItem('pf_settings');
@@ -1145,6 +1161,71 @@
           timeRef.off('value', handleTimeLogs);
         };
       }, []);
+
+      // Admin: detect user role and sync users list
+      useEffect(() => {
+        if (!currentUser) { setCurrentUserRole(null); setAllUsers([]); return; }
+        const uid = currentUser.uid;
+        const roleRef = db.ref(`adminUsers/${uid}/role`);
+        const allAdminRef = db.ref('adminUsers');
+
+        // Check if any admin exists; if not, make current user admin
+        allAdminRef.once('value').then(snap => {
+          const data = snap.val();
+          if (!data || Object.keys(data).length === 0) {
+            // First user → auto admin
+            db.ref(`adminUsers/${uid}`).set({
+              role: 'admin',
+              email: currentUser.email || '',
+              displayName: currentUser.displayName || '',
+              createdAt: new Date().toISOString(),
+            });
+            setCurrentUserRole('admin');
+            showToast('Voce e o primeiro usuario. Acesso de administrador concedido!', 'success');
+          }
+        }).catch(() => {});
+
+        // Listen for role changes
+        roleRef.on('value', (snap) => {
+          const role = snap.val();
+          setCurrentUserRole(role || 'member');
+        });
+
+        // Listen for all users (for admin panel)
+        allAdminRef.on('value', (snap) => {
+          const data = snap.val();
+          if (data) {
+            const users = Object.entries(data).map(([id, u]) => ({ uid: id, ...u }));
+            setAllUsers(users);
+          } else {
+            setAllUsers([]);
+          }
+        });
+
+        // Register self in adminUsers if not present
+        db.ref(`adminUsers/${uid}`).once('value').then(snap => {
+          if (!snap.val()) {
+            db.ref(`adminUsers/${uid}`).set({
+              role: 'member',
+              email: currentUser.email || '',
+              displayName: currentUser.displayName || '',
+              createdAt: new Date().toISOString(),
+            });
+          } else {
+            // Update profile info
+            db.ref(`adminUsers/${uid}`).update({
+              email: currentUser.email || '',
+              displayName: currentUser.displayName || '',
+              lastActive: new Date().toISOString(),
+            });
+          }
+        }).catch(() => {});
+
+        return () => {
+          roleRef.off('value');
+          allAdminRef.off('value');
+        };
+      }, [currentUser]);
 
       // Timer tick - update every second when timer is active
       useEffect(() => {
@@ -1549,6 +1630,9 @@
                 <button onClick={() => fileInputRef.current?.click()} data-tooltip="Importar" className="hidden sm:block p-2 rounded-lg header-icon"><Upload className="w-4 h-4" /></button>
                 <input ref={fileInputRef} type="file" accept=".json" onChange={importData} className="hidden" />
                 <div className="w-px h-5 bg-white/10 mx-1 hidden sm:block" />
+                {currentUserRole === 'admin' && (
+                  <button onClick={() => setShowAdminPanel(true)} data-tooltip="Admin" className={`p-2 rounded-lg ${showAdminPanel ? 'icon-active' : 'header-icon'}`}><ShieldIcon className="w-4 h-4 text-red-400" /></button>
+                )}
                 <button onClick={() => setShowSettings(true)} data-tooltip="Configuracoes" className={`p-2 rounded-lg ${showSettings ? 'icon-active' : 'header-icon'}`}><SettingsIcon className="w-4 h-4" /></button>
                 {currentUser && (
                   <>
@@ -1561,6 +1645,9 @@
                           <UserIcon className="w-4 h-4 text-slate-400" />
                         )}
                         <span className="text-xs text-slate-300 max-w-[100px] truncate">{currentUser.displayName || currentUser.email || 'Usuário'}</span>
+                        {currentUserRole && roleConfig[currentUserRole] && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${roleConfig[currentUserRole].class}`}>{roleConfig[currentUserRole].label}</span>
+                        )}
                       </div>
                       <button onClick={onLogout} data-tooltip="Sair" className="p-2 rounded-lg header-icon"><LogOutIcon className="w-4 h-4" /></button>
                     </div>
@@ -2173,6 +2260,7 @@
           )}
           {confirmModal && <ConfirmModal message={confirmModal.message} onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(null); }} onCancel={() => setConfirmModal(null)} />}
           {showGlobalSearch && <GlobalSearch projects={projects} onSelect={(projectId, task) => { setSelectedProject(projectId); if (task) setEditingTask(task); }} onClose={() => setShowGlobalSearch(false)} />}
+          {showAdminPanel && <AdminPanel currentUser={currentUser} currentUserRole={currentUserRole} allUsers={allUsers} projects={projects} timeLogs={timeLogs} onClose={() => setShowAdminPanel(false)} showConfirm={showConfirm} showToast={showToast} />}
 
           {/* Activity Log Modal */}
           {showActivityLog && (
@@ -2276,6 +2364,275 @@
             {!query && (
               <div className="px-4 py-6 text-center text-slate-500 text-xs">Digite para buscar em todos os projetos e tarefas</div>
             )}
+          </div>
+        </div>
+      );
+    }
+
+    // Admin Panel Component
+    function AdminPanel({ currentUser, currentUserRole, allUsers, projects, timeLogs, onClose, showConfirm, showToast }) {
+      const [tab, setTab] = useState('users');
+      const [roleChanging, setRoleChanging] = useState(null);
+
+      if (currentUserRole !== 'admin') return null;
+
+      const allTasks = projects.flatMap(p => p.tasks || []);
+      const totalTasks = allTasks.length;
+      const completedTasks = allTasks.filter(t => t.status === 'completed').length;
+      const overdueTasks = allTasks.filter(t => isOverdue(t)).length;
+      const inProgressTasks = allTasks.filter(t => t.status === 'in-progress').length;
+      const pendingTasks = allTasks.filter(t => t.status === 'pending').length;
+      const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      const totalHours = (timeLogs || []).reduce((s, l) => s + (l.seconds || 0), 0) / 3600;
+      const activeProjects = projects.filter(p => (p.tasks || []).length === 0 || !(p.tasks || []).every(t => t.status === 'completed')).length;
+      const completedProjects = projects.length - activeProjects;
+
+      // Tasks by assignee
+      const byAssignee = {};
+      allTasks.forEach(t => {
+        const name = t.assignee || 'Sem responsavel';
+        if (!byAssignee[name]) byAssignee[name] = { total: 0, completed: 0, overdue: 0 };
+        byAssignee[name].total++;
+        if (t.status === 'completed') byAssignee[name].completed++;
+        if (isOverdue(t)) byAssignee[name].overdue++;
+      });
+      const topUsers = Object.entries(byAssignee).sort((a, b) => b[1].total - a[1].total).slice(0, 10);
+
+      const changeUserRole = (uid, newRole) => {
+        showConfirm(`Alterar permissao para "${roleConfig[newRole].label}"?`, () => {
+          db.ref(`adminUsers/${uid}/role`).set(newRole).then(() => {
+            showToast(`Permissao alterada para ${roleConfig[newRole].label}`, 'success');
+            setRoleChanging(null);
+          }).catch(() => showToast('Erro ao alterar permissao', 'error'));
+        });
+      };
+
+      const removeUser = (uid, email) => {
+        if (uid === currentUser.uid) { showToast('Voce nao pode remover a si mesmo', 'error'); return; }
+        showConfirm(`Remover usuario "${email}" do sistema?`, () => {
+          db.ref(`adminUsers/${uid}`).remove().then(() => {
+            showToast('Usuario removido', 'success');
+          }).catch(() => showToast('Erro ao remover', 'error'));
+        });
+      };
+
+      const tabs = [
+        { key: 'users', label: 'Usuarios', icon: '👥' },
+        { key: 'metrics', label: 'Metricas', icon: '📊' },
+        { key: 'activity', label: 'Atividade', icon: '📝' },
+      ];
+
+      return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-fade-in" onClick={onClose}>
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <ShieldIcon className="w-5 h-5 text-red-400" />
+                <h2 className="text-lg font-bold">Painel Admin</h2>
+              </div>
+              <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition"><X className="w-4 h-4" /></button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-1 px-6 pt-3 border-b border-white/10">
+              {tabs.map(t => (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition ${
+                    tab === t.key ? 'bg-white/10 text-white border-b-2 border-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  {t.icon} {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* === USERS TAB === */}
+              {tab === 'users' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-slate-400">{allUsers.length} usuario{allUsers.length !== 1 ? 's' : ''} registrado{allUsers.length !== 1 ? 's' : ''}</p>
+                    <div className="flex gap-2 text-xs">
+                      {Object.entries(roleConfig).map(([key, cfg]) => {
+                        const count = allUsers.filter(u => u.role === key).length;
+                        return count > 0 ? <span key={key} className={`px-2 py-1 rounded-full ${cfg.class}`}>{cfg.icon} {count}</span> : null;
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {allUsers.map(user => (
+                      <div key={user.uid} className="glass rounded-xl p-4 flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-lg flex-shrink-0">
+                          {user.displayName ? user.displayName[0].toUpperCase() : '?'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">{user.displayName || 'Sem nome'}</div>
+                          <div className="text-xs text-slate-500 truncate">{user.email || 'Sem email'}</div>
+                          {user.lastActive && (
+                            <div className="text-[10px] text-slate-600 mt-0.5">Ativo: {new Date(user.lastActive).toLocaleString('pt-BR')}</div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {roleChanging === user.uid ? (
+                            <div className="flex gap-1">
+                              {Object.entries(roleConfig).map(([key, cfg]) => (
+                                <button
+                                  key={key}
+                                  onClick={() => changeUserRole(user.uid, key)}
+                                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition ${
+                                    user.role === key ? cfg.class + ' ring-1 ring-white/20' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                  }`}
+                                >
+                                  {cfg.icon} {cfg.label}
+                                </button>
+                              ))}
+                              <button onClick={() => setRoleChanging(null)} className="px-2 py-1.5 text-xs text-slate-500 hover:text-white transition">✕</button>
+                            </div>
+                          ) : (
+                            <>
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${roleConfig[user.role]?.class || roleConfig.member.class}`}>
+                                {roleConfig[user.role]?.icon || '🔵'} {roleConfig[user.role]?.label || 'Membro'}
+                              </span>
+                              {user.uid !== currentUser.uid && (
+                                <div className="flex gap-1">
+                                  <button onClick={() => setRoleChanging(user.uid)} className="p-1.5 rounded-lg hover:bg-white/10 transition text-slate-400 hover:text-white" title="Alterar permissao">
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button onClick={() => removeUser(user.uid, user.email)} className="p-1.5 rounded-lg hover:bg-red-500/20 transition text-slate-400 hover:text-red-400" title="Remover usuario">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                              {user.uid === currentUser.uid && (
+                                <span className="text-[10px] text-slate-600 italic">voce</span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {allUsers.length === 0 && (
+                      <p className="text-center text-slate-500 py-8 text-sm">Nenhum usuario registrado</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* === METRICS TAB === */}
+              {tab === 'metrics' && (
+                <div className="space-y-6">
+                  {/* KPI cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="glass rounded-xl p-4"><div className="text-2xl font-bold text-primary">{allUsers.length}</div><div className="text-xs text-slate-400 mt-1">Usuarios</div></div>
+                    <div className="glass rounded-xl p-4"><div className="text-2xl font-bold text-white">{projects.length}</div><div className="text-xs text-slate-400 mt-1">Projetos</div><div className="text-[10px] text-slate-500">{activeProjects} ativos / {completedProjects} concluidos</div></div>
+                    <div className="glass rounded-xl p-4"><div className="text-2xl font-bold text-emerald-400">{completionRate}%</div><div className="text-xs text-slate-400 mt-1">Taxa Conclusao</div><div className="text-[10px] text-slate-500">{completedTasks}/{totalTasks} tarefas</div></div>
+                    <div className="glass rounded-xl p-4"><div className="text-2xl font-bold text-amber-400">{totalHours.toFixed(1)}h</div><div className="text-xs text-slate-400 mt-1">Horas Registradas</div></div>
+                  </div>
+
+                  {/* Tasks by status */}
+                  <div className="glass rounded-xl p-5">
+                    <h3 className="text-sm font-semibold text-slate-300 mb-3">Tarefas por Status</h3>
+                    {totalTasks > 0 ? (
+                      <>
+                        <div className="flex gap-1 h-5 rounded-full overflow-hidden bg-white/5 mb-3">
+                          {completedTasks > 0 && <div className="bg-emerald-500 transition-all" style={{ width: `${(completedTasks/totalTasks)*100}%` }} title={`Concluidas: ${completedTasks}`} />}
+                          {inProgressTasks > 0 && <div className="bg-blue-500 transition-all" style={{ width: `${(inProgressTasks/totalTasks)*100}%` }} title={`Em progresso: ${inProgressTasks}`} />}
+                          {pendingTasks > 0 && <div className="bg-purple-500 transition-all" style={{ width: `${(pendingTasks/totalTasks)*100}%` }} title={`Pendentes: ${pendingTasks}`} />}
+                          {overdueTasks > 0 && <div className="bg-red-500 transition-all" style={{ width: `${(overdueTasks/totalTasks)*100}%` }} title={`Atrasadas: ${overdueTasks}`} />}
+                        </div>
+                        <div className="flex flex-wrap gap-3 text-xs text-slate-400">
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Concluidas ({completedTasks})</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> Em progresso ({inProgressTasks})</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500" /> Pendentes ({pendingTasks})</span>
+                          {overdueTasks > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Atrasadas ({overdueTasks})</span>}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-xs text-slate-500">Nenhuma tarefa criada</p>
+                    )}
+                  </div>
+
+                  {/* Top users */}
+                  <div className="glass rounded-xl p-5">
+                    <h3 className="text-sm font-semibold text-slate-300 mb-3">Top Usuarios por Tarefas</h3>
+                    {topUsers.length > 0 ? (
+                      <div className="space-y-2">
+                        {topUsers.map(([name, data]) => (
+                          <div key={name} className="flex items-center gap-3">
+                            <span className="w-32 text-xs text-slate-400 truncate">{name}</span>
+                            <div className="flex-1 h-3 bg-white/10 rounded-full overflow-hidden">
+                              <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${topUsers[0][1].total > 0 ? (data.total / topUsers[0][1].total) * 100 : 0}%` }} />
+                            </div>
+                            <span className="text-xs font-mono text-slate-300 w-16 text-right">{data.completed}/{data.total}</span>
+                            {data.overdue > 0 && <span className="text-xs text-red-400">⚠️{data.overdue}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500">Nenhuma tarefa atribuida</p>
+                    )}
+                  </div>
+
+                  {/* Projects overview */}
+                  <div className="glass rounded-xl p-5">
+                    <h3 className="text-sm font-semibold text-slate-300 mb-3">Projetos ({projects.length})</h3>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {projects.map(p => {
+                        const tasks = p.tasks || [];
+                        const done = tasks.filter(t => t.status === 'completed').length;
+                        const over = tasks.filter(t => isOverdue(t)).length;
+                        const prog = tasks.length > 0 ? Math.round(tasks.reduce((s, t) => s + (t.progress || 0), 0) / tasks.length) : 0;
+                        return (
+                          <div key={p.id} className="flex items-center gap-3 py-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: p.color || '#06b6d4' }} />
+                            <span className="flex-1 text-xs text-slate-300 truncate">{p.name}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">{done}/{tasks.length}</span>
+                            {over > 0 && <span className="text-[10px] text-red-400">⚠️{over}</span>}
+                            <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${prog}%`, background: p.color || '#06b6d4' }} />
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono w-8 text-right">{prog}%</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* === ACTIVITY TAB === */}
+              {tab === 'activity' && (
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-400 mb-2">Usuarios registrados no sistema</p>
+                  <div className="space-y-3">
+                    {allUsers.sort((a, b) => new Date(b.lastActive || b.createdAt || 0) - new Date(a.lastActive || a.createdAt || 0)).map(user => (
+                      <div key={user.uid} className="flex items-center gap-3 glass rounded-lg p-3">
+                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-sm flex-shrink-0">
+                          {user.displayName ? user.displayName[0].toUpperCase() : '?'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">{user.displayName || 'Sem nome'}</div>
+                          <div className="text-[10px] text-slate-500">{user.email}</div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <div className={`text-[10px] px-2 py-0.5 rounded-full ${roleConfig[user.role]?.class || roleConfig.member.class}`}>
+                            {roleConfig[user.role]?.label || 'Membro'}
+                          </div>
+                          <div className="text-[10px] text-slate-600 mt-1">
+                            {user.lastActive ? new Date(user.lastActive).toLocaleDateString('pt-BR') : 'Sem registro'}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       );
