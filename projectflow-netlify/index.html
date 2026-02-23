@@ -2532,10 +2532,10 @@
 
     function ProjectSidebar({ projects, selectedProject, onSelectProject, onDeleteProject, showNewProject, onToggleNewProject, onAddProject, onEditProject, projectFilter, setProjectFilter, showConfirm }) {
       const prefetchedRef = useRef(new Set());
+      const [showCompleted, setShowCompleted] = useState(false);
       const handleHover = useCallback((projectId) => {
         if (prefetchedRef.current.has(projectId)) return;
         prefetchedRef.current.add(projectId);
-        // Pre-compute filtered/sorted task data for smoother transition
         const p = projects.find(pr => pr.id === projectId);
         if (p && p.tasks) {
           p.tasks.forEach(t => { isOverdue(t); isDueSoon(t); });
@@ -2546,6 +2546,72 @@
         const q = projectFilter.toLowerCase();
         return p.name.toLowerCase().includes(q) || (p.client && p.client.toLowerCase().includes(q));
       });
+
+      const isProjectCompleted = (p) => p.tasks && p.tasks.length > 0 && p.tasks.every(t => t.status === 'completed');
+      const activeProjects = filtered.filter(p => !isProjectCompleted(p));
+      const completedProjects = filtered.filter(p => isProjectCompleted(p));
+
+      const ProjectCard = ({ project, dimmed }) => {
+        const taskCount = project.tasks.length;
+        const avgProgress = taskCount > 0
+          ? Math.round(project.tasks.reduce((a, t) => a + t.progress, 0) / taskCount)
+          : 0;
+        const overdueCount = project.tasks.filter(t => isOverdue(t)).length;
+
+        return (
+          <div
+            key={project.id}
+            className={`project-card p-4 rounded-xl cursor-pointer group ${
+              selectedProject === project.id
+                ? 'bg-white/10 border-2'
+                : 'bg-white/5 border-2 border-transparent hover:border-white/20'
+            } ${dimmed ? 'opacity-60' : ''}`}
+            style={{ borderColor: selectedProject === project.id ? project.color : undefined }}
+            onMouseEnter={() => handleHover(project.id)}
+            onClick={() => onSelectProject(project.id)}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  {dimmed ? (
+                    <span className="text-xs">✅</span>
+                  ) : (
+                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: project.color }} />
+                  )}
+                  <h3 className={`font-semibold text-sm truncate ${dimmed ? 'line-through text-slate-400' : ''}`}>{project.name}</h3>
+                </div>
+                {project.client && (
+                  <div className="text-xs text-slate-500 truncate mb-0.5">{project.client}</div>
+                )}
+                <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
+                  <span>{taskCount} tarefas</span>
+                  {dimmed && <span className="text-emerald-400">100% concluído</span>}
+                  {!dimmed && overdueCount > 0 && (
+                    <span className="text-red-400">{overdueCount} atrasada{overdueCount > 1 ? 's' : ''}</span>
+                  )}
+                </div>
+                {taskCount > 0 && (
+                  <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${avgProgress}%`, background: dimmed ? '#10b981' : project.color }} />
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition">
+                <button onClick={(e) => { e.stopPropagation(); onEditProject(project); }}
+                  className="text-slate-400 hover:text-white transition">
+                  <Edit2 className="w-3 h-3" />
+                </button>
+                {projects.length > 1 && (
+                  <button onClick={(e) => { e.stopPropagation(); showConfirm('Deletar projeto e todas as suas tarefas?', () => onDeleteProject(project.id)); }}
+                    className="text-slate-400 hover:text-red-400 transition">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      };
 
       return (
         <div className="glass rounded-2xl p-4 sm:p-6">
@@ -2563,73 +2629,47 @@
           {projects.length > 1 && (
             <div className="relative mb-3">
               <Search className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input type="text" value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}
+              <input id="sidebar-filter" name="sidebar-filter" type="text" value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}
                 placeholder="Filtrar projeto ou cliente..."
                 className="w-full pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs focus:outline-none focus:ring-2 ring-primary focus:ring-2 placeholder-slate-500" />
             </div>
           )}
 
+          {/* Active Projects */}
           <div className="space-y-2">
-            {filtered.map(project => {
-              const taskCount = project.tasks.length;
-              const avgProgress = taskCount > 0
-                ? Math.round(project.tasks.reduce((a, t) => a + t.progress, 0) / taskCount)
-                : 0;
-              const overdueCount = project.tasks.filter(t => isOverdue(t)).length;
-
-              return (
-                <div
-                  key={project.id}
-                  className={`project-card p-4 rounded-xl cursor-pointer group ${
-                    selectedProject === project.id
-                      ? 'bg-white/10 border-2'
-                      : 'bg-white/5 border-2 border-transparent hover:border-white/20'
-                  }`}
-                  style={{ borderColor: selectedProject === project.id ? project.color : undefined }}
-                  onMouseEnter={() => handleHover(project.id)}
-                  onClick={() => onSelectProject(project.id)}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: project.color }} />
-                        <h3 className="font-semibold text-sm truncate">{project.name}</h3>
-                      </div>
-                      {project.client && (
-                        <div className="text-xs text-slate-500 truncate mb-0.5">{project.client}</div>
-                      )}
-                      <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
-                        <span>{taskCount} tarefas</span>
-                        {overdueCount > 0 && (
-                          <span className="text-red-400">{overdueCount} atrasada{overdueCount > 1 ? 's' : ''}</span>
-                        )}
-                      </div>
-                      {taskCount > 0 && (
-                        <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${avgProgress}%`, background: project.color }} />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition">
-                      <button onClick={(e) => { e.stopPropagation(); onEditProject(project); }}
-                        className="text-slate-400 hover:text-white transition">
-                        <Edit2 className="w-3 h-3" />
-                      </button>
-                      {projects.length > 1 && (
-                        <button onClick={(e) => { e.stopPropagation(); showConfirm('Deletar projeto e todas as suas tarefas?', () => onDeleteProject(project.id)); }}
-                          className="text-slate-400 hover:text-red-400 transition">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {activeProjects.map(project => (
+              <ProjectCard key={project.id} project={project} dimmed={false} />
+            ))}
+            {activeProjects.length === 0 && !projectFilter && completedProjects.length > 0 && (
+              <p className="text-xs text-slate-500 text-center py-3">Todos os projetos foram concluídos! 🎉</p>
+            )}
             {filtered.length === 0 && projectFilter && (
               <p className="text-xs text-slate-500 text-center py-2">Nenhum projeto encontrado</p>
             )}
           </div>
+
+          {/* Completed Projects - Collapsible */}
+          {completedProjects.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-white/10">
+              <button
+                onClick={() => setShowCompleted(!showCompleted)}
+                className="flex items-center justify-between w-full text-left mb-2 group"
+              >
+                <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+                  ✅ Concluídos
+                  <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold">{completedProjects.length}</span>
+                </span>
+                <ChevronRight className={`w-3 h-3 text-slate-500 transition-transform ${showCompleted ? 'rotate-90' : ''}`} />
+              </button>
+              {showCompleted && (
+                <div className="space-y-2 animate-fade-in">
+                  {completedProjects.map(project => (
+                    <ProjectCard key={project.id} project={project} dimmed={true} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {showNewProject && (
             <NewProjectForm
