@@ -401,7 +401,36 @@
   </style>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <!-- Fallback content shown while scripts load or if they fail -->
+    <div id="loading-fallback" style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f172a,#1e293b,#0f172a);color:white;font-family:sans-serif;">
+      <div style="text-align:center;">
+        <div style="font-size:48px;margin-bottom:16px;">🚀</div>
+        <h1 style="font-size:24px;margin-bottom:8px;">ProjectFlow</h1>
+        <p style="color:#94a3b8;font-size:14px;">Carregando aplicação...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error handler: catches script loading failures and shows user-friendly message -->
+  <script>
+    window.addEventListener('error', function(e) {
+      if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+        var root = document.getElementById('root');
+        if (root) {
+          root.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f172a,#1e293b,#0f172a);color:white;font-family:sans-serif;padding:20px;"><div style="text-align:center;max-width:500px;"><div style="font-size:48px;margin-bottom:16px;">⚠️</div><h1 style="font-size:20px;margin-bottom:12px;">Erro ao carregar</h1><p style="color:#94a3b8;font-size:14px;margin-bottom:20px;">Não foi possível carregar um recurso necessário. Isso pode ser causado por bloqueio de scripts ou conexão instável.</p><button onclick="location.reload()" style="padding:10px 24px;background:#06b6d4;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;">Tentar novamente</button></div></div>';
+        }
+      }
+    }, true);
+    // Also catch unhandled JS errors
+    window.onerror = function(msg, url, line) {
+      console.error('ProjectFlow Error:', msg, 'at', url, 'line', line);
+      var fb = document.getElementById('loading-fallback');
+      if (fb) {
+        fb.innerHTML = '<div style="text-align:center;"><div style="font-size:48px;margin-bottom:16px;">⚠️</div><h1 style="font-size:20px;margin-bottom:12px;">Erro na aplicação</h1><p style="color:#94a3b8;font-size:14px;margin-bottom:8px;">Ocorreu um erro ao iniciar o ProjectFlow.</p><p style="color:#64748b;font-size:12px;margin-bottom:20px;">Erro: ' + msg + '</p><button onclick="location.reload()" style="padding:10px 24px;background:#06b6d4;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;">Recarregar</button></div>';
+      }
+    };
+  </script>
 
   <script type="text/babel">
     const { useState, useEffect, useCallback, useRef, useMemo } = React;
@@ -663,7 +692,7 @@
       today.setHours(0, 0, 0, 0);
       const end = new Date(task.end);
       const diffDays = Math.floor((end - today) / (1000 * 60 * 60 * 24));
-      return diffDays >= 0 && diffDays <= 2;
+      return diffDays >= 0 && diffDays <= 3;
     };
 
     const priorityConfig = {
@@ -1489,7 +1518,7 @@
                 <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition" aria-label="Menu">
                   <Menu className="w-5 h-5" />
                 </button>
-                <div className="flex items-center gap-2.5">
+                <button onClick={() => { setView('home'); setSelectedProject(null); }} title="Ir para Inicio" className="flex items-center gap-2.5 hover:opacity-80 transition">
                   {appSettings.logoUrl ? (
                     <img src={appSettings.logoUrl} alt="Logo" className="h-8 w-auto" />
                   ) : (
@@ -1498,7 +1527,7 @@
                     </div>
                   )}
                   <span className="font-semibold text-sm hidden sm:block">{appSettings.companyName || 'ProjectFlow'}</span>
-                </div>
+                </button>
               </div>
               <button onClick={() => setShowGlobalSearch(true)} className="hidden sm:flex items-center gap-2 px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition text-slate-400 text-sm w-72">
                 <Search className="w-4 h-4 flex-shrink-0" />
@@ -1764,7 +1793,9 @@
 
               {/* Main Content */}
               <main className="flex-1 min-w-0 animate-slide-in" style={{ animationDelay: '0.2s' }}>
-                {currentProject ? (
+                {view === 'home' ? (
+                  <HomeView projects={projects} currentUser={currentUser} onSelectProject={setSelectedProject} onEditTask={setEditingTask} timeLogs={timeLogs} />
+                ) : currentProject ? (
                   <>
                     {/* Project Header with Stats */}
                     <div className="glass rounded-2xl p-4 sm:p-6 mb-6">
@@ -1834,6 +1865,7 @@
                     {/* View Tabs - inline above tasks */}
                     <div className="glass rounded-xl p-1.5 mb-4 flex items-center gap-1 overflow-x-auto no-print">
                       {[
+                        { key: 'home', label: 'Inicio', icon: '🏠' },
                         { key: 'gantt', label: 'Gantt', icon: '📊' },
                         { key: 'list', label: 'Lista', icon: '📋' },
                         { key: 'kanban', label: 'Kanban', icon: '📌' },
@@ -2248,6 +2280,255 @@
       );
     }
 
+    // Home Overview Component
+    function HomeView({ projects, currentUser, onSelectProject, onEditTask, timeLogs }) {
+      const [myTasksFilter, setMyTasksFilter] = useState('all');
+      const [myTasksSort, setMyTasksSort] = useState('date');
+
+      // Calculate KPIs
+      const allTasks = projects.flatMap(p => p.tasks || []);
+      const totalProjects = projects.length;
+      const completedTasks = allTasks.filter(t => t.status === 'completed').length;
+      const overdueTasks = allTasks.filter(t => isOverdue(t)).length;
+      const avgProgress = totalProjects > 0
+        ? Math.round(projects.reduce((sum, p) => sum + (p.tasks || []).reduce((s, t) => s + (t.progress || 0), 0) / (Math.max((p.tasks || []).length, 1)), 0) / totalProjects)
+        : 0;
+      const totalHours = (timeLogs || []).reduce((s, l) => s + (l.seconds || 0), 0) / 3600;
+
+      // Get My Tasks - tarefas atribuídas ao usuário atual
+      const myTasks = allTasks
+        .filter(task => {
+          const assigneeMatch = currentUser
+            ? task.assignee && (
+                task.assignee === currentUser.email ||
+                task.assignee === currentUser.displayName ||
+                task.assignee.includes(currentUser.email?.split('@')[0])
+              )
+            : false;
+          if (myTasksFilter === 'all') return assigneeMatch;
+          if (myTasksFilter === 'overdue') return assigneeMatch && isOverdue(task);
+          if (myTasksFilter === 'due-soon') return assigneeMatch && isDueSoon(task);
+          if (myTasksFilter === 'pending') return assigneeMatch && task.status === 'pending';
+          if (myTasksFilter === 'in-progress') return assigneeMatch && task.status === 'in-progress';
+          if (myTasksFilter === 'completed') return assigneeMatch && task.status === 'completed';
+          return assigneeMatch;
+        })
+        .map(task => {
+          const project = projects.find(p => (p.tasks || []).some(t => t.id === task.id));
+          return { ...task, projectId: project?.id, projectName: project?.name, projectColor: project?.color };
+        })
+        .sort((a, b) => {
+          if (myTasksSort === 'date') return new Date(a.end) - new Date(b.end);
+          if (myTasksSort === 'priority') {
+            const pOrder = { high: 0, medium: 1, low: 2 };
+            return (pOrder[a.priority] || 1) - (pOrder[b.priority] || 1);
+          }
+          if (myTasksSort === 'status') {
+            const sOrder = { 'in-progress': 0, pending: 1, completed: 2 };
+            return (sOrder[a.status] || 0) - (sOrder[b.status] || 0);
+          }
+          return 0;
+        });
+
+      const getTaskColor = (task) => {
+        if (isOverdue(task)) return 'bg-red-500/10 border-red-500/30 text-red-400';
+        if (isDueSoon(task)) return 'bg-amber-500/10 border-amber-500/30 text-amber-400';
+        if (task.status === 'completed') return 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400';
+        if (task.status === 'in-progress') return 'bg-blue-500/10 border-blue-500/30 text-blue-400';
+        return 'bg-purple-500/10 border-purple-500/30 text-purple-400';
+      };
+
+      const getStatusIcon = (status) => {
+        switch (status) {
+          case 'completed': return '✅';
+          case 'in-progress': return '⏳';
+          case 'pending': return '⏰';
+          default: return '•';
+        }
+      };
+
+      return (
+        <div className="space-y-6 animate-slide-in">
+          {/* Header */}
+          <div className="glass rounded-2xl p-6">
+            <h1 className="text-3xl font-bold mb-2">Bem-vindo! 👋</h1>
+            <p className="text-slate-400">
+              {currentUser
+                ? `Olá ${currentUser.displayName || currentUser.email?.split('@')[0]}!`
+                : 'Modo local'}
+            </p>
+            <p className="text-sm text-slate-500 mt-1">{new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          </div>
+
+          {/* KPI Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <div className="glass rounded-xl p-4">
+              <div className="text-2xl font-bold text-primary">{totalProjects}</div>
+              <div className="text-xs text-slate-400 mt-1">Projetos</div>
+            </div>
+            <div className="glass rounded-xl p-4">
+              <div className="text-2xl font-bold text-emerald-400">{completedTasks}/{allTasks.length}</div>
+              <div className="text-xs text-slate-400 mt-1">Tarefas Concluídas</div>
+              <div className="text-xs text-slate-500 mt-1">{allTasks.length > 0 ? Math.round(completedTasks/allTasks.length*100) : 0}%</div>
+            </div>
+            <div className="glass rounded-xl p-4">
+              <div className={`text-2xl font-bold ${overdueTasks > 0 ? 'text-red-400' : 'text-slate-500'}`}>{overdueTasks}</div>
+              <div className="text-xs text-slate-400 mt-1">Atrasadas</div>
+            </div>
+            <div className="glass rounded-xl p-4">
+              <div className="text-2xl font-bold text-amber-400">{avgProgress}%</div>
+              <div className="text-xs text-slate-400 mt-1">Progresso Médio</div>
+            </div>
+          </div>
+
+          {/* My Tasks Section */}
+          {currentUser ? (
+            <div className="glass rounded-2xl p-6">
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">✅ Minhas Tarefas{myTasks.length > 0 && <span className="text-sm font-normal text-slate-400">({myTasks.length})</span>}</h2>
+
+              {/* Filters and Sort */}
+              <div className="flex flex-col gap-3 mb-4">
+                <div className="flex gap-1 flex-wrap">
+                  {[
+                    { value: 'all', label: 'Todas' },
+                    { value: 'pending', label: '⏰ Pendente' },
+                    { value: 'in-progress', label: '⏳ Em Progresso' },
+                    { value: 'due-soon', label: '📅 Em Breve' },
+                    { value: 'overdue', label: '⚠️ Atrasadas' },
+                    { value: 'completed', label: '✅ Concluídas' },
+                  ].map(f => (
+                    <button
+                      key={f.value}
+                      onClick={() => setMyTasksFilter(f.value)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${
+                        myTasksFilter === f.value
+                          ? 'bg-primary text-white'
+                          : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-xs text-slate-500 py-1.5">Ordenar:</span>
+                  {[
+                    { value: 'date', label: '📅 Data' },
+                    { value: 'priority', label: '🔴 Prioridade' },
+                    { value: 'status', label: '✓ Status' },
+                  ].map(s => (
+                    <button
+                      key={s.value}
+                      onClick={() => setMyTasksSort(s.value)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${
+                        myTasksSort === s.value
+                          ? 'bg-primary text-white'
+                          : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tasks Grid */}
+              {myTasks.length > 0 ? (
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {myTasks.map(task => (
+                    <div
+                      key={task.id}
+                      onClick={() => {
+                        onSelectProject(task.projectId);
+                        setTimeout(() => onEditTask(task), 100);
+                      }}
+                      className={`glass rounded-xl p-4 cursor-pointer hover:brightness-110 transition border ${getTaskColor(task)} ${isOverdue(task) ? 'overdue-pulse' : ''}`}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-slate-300">{task.projectName}</span>
+                        <span className="text-lg">{getStatusIcon(task.status)}</span>
+                      </div>
+                      <h3 className="font-medium text-sm line-clamp-2 mb-2">{task.name}</h3>
+                      <div className="flex gap-2 mb-2 flex-wrap text-xs">
+                        {task.priority && (
+                          <span className={`px-1.5 py-0.5 rounded ${
+                            task.priority === 'high' ? 'bg-red-500/20 text-red-300' :
+                            task.priority === 'medium' ? 'bg-amber-500/20 text-amber-300' :
+                            'bg-emerald-500/20 text-emerald-300'
+                          }`}>
+                            {task.priority === 'high' ? '🔴 Alta' : task.priority === 'medium' ? '🟡 Média' : '🟢 Baixa'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mb-2">
+                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-primary to-blue-400 transition-all" style={{ width: `${task.progress || 0}%` }} />
+                        </div>
+                        <span className="text-xs text-slate-500 mt-1 block">{task.progress || 0}%</span>
+                      </div>
+                      <div className="text-xs text-slate-500 flex items-center gap-2 justify-between">
+                        <span>{new Date(task.end).toLocaleDateString('pt-BR')}</span>
+                        {isOverdue(task) && <span className="text-red-400">Atrasada</span>}
+                        {isDueSoon(task) && !isOverdue(task) && <span className="text-amber-400">Em breve</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-500">
+                  <p className="text-sm">Nenhuma tarefa atribuída com esse filtro</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="glass rounded-2xl p-6 text-center text-slate-400">
+              <p className="text-sm">Faça login para ver suas tarefas</p>
+            </div>
+          )}
+
+          {/* Projects Overview */}
+          <div className="glass rounded-2xl p-6">
+            <h2 className="text-xl font-bold mb-4">📁 Todos os Projetos</h2>
+            {projects.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {projects.map(project => {
+                  const projTasks = project.tasks || [];
+                  const completed = projTasks.filter(t => t.status === 'completed').length;
+                  const overdue = projTasks.filter(t => isOverdue(t)).length;
+                  const avgProg = projTasks.length > 0 ? Math.round(projTasks.reduce((s, t) => s + (t.progress || 0), 0) / projTasks.length) : 0;
+                  return (
+                    <div
+                      key={project.id}
+                      onClick={() => onSelectProject(project.id)}
+                      className="glass rounded-xl p-4 cursor-pointer hover:brightness-110 transition border-l-4"
+                      style={{ borderColor: project.color || '#06b6d4' }}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm truncate">{project.name}</h3>
+                          {project.client && <p className="text-xs text-slate-500 truncate">{project.client}</p>}
+                        </div>
+                        <span className="text-xs px-2 py-1 rounded-full bg-white/5 text-slate-300 ml-2 whitespace-nowrap">{avgProg}%</span>
+                      </div>
+                      <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-2">
+                        <div className="h-full transition-all" style={{ width: `${avgProg}%`, background: project.color || '#06b6d4' }} />
+                      </div>
+                      <div className="flex gap-2 text-xs text-slate-400">
+                        <span>{completed}/{projTasks.length}</span>
+                        {overdue > 0 && <span className="text-red-400">⚠️ {overdue}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-center text-slate-500 py-8">Nenhum projeto criado</p>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     function ProjectSidebar({ projects, selectedProject, onSelectProject, onDeleteProject, showNewProject, onToggleNewProject, onAddProject, onEditProject, projectFilter, setProjectFilter, showConfirm }) {
       const prefetchedRef = useRef(new Set());
       const handleHover = useCallback((projectId) => {
@@ -2396,13 +2677,13 @@
 
       return (
         <form onSubmit={handleSubmit} className="mt-4 p-4 bg-white/5 rounded-xl animate-scale-in space-y-3">
-          <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+          <input id="project-name" name="project-name" type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="Nome do projeto" className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary" autoFocus required />
-          <input type="text" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })}
+          <input id="project-client" name="project-client" type="text" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })}
             placeholder="Nome do cliente" className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary" />
-          <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+          <input id="project-description" name="project-description" type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
             placeholder="Descrição breve" className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary" />
-          <input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+          <input id="project-deadline" name="project-deadline" type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })}
             className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-xs focus:outline-none focus:ring-2 ring-primary" title="Prazo do projeto" />
           <ColorPicker value={form.color} onChange={(c) => setForm({ ...form, color: c })} />
           <div className="flex gap-2">
@@ -2444,6 +2725,8 @@
           <div>
             <label className="block text-sm font-medium mb-2">Nome da Tarefa</label>
             <input aria-required="true"
+              id="task-name"
+              name="task-name"
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -2457,6 +2740,8 @@
           <div>
             <label className="block text-sm font-medium mb-2">Descrição</label>
             <textarea
+              id="task-description"
+              name="task-description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 ring-primary resize-none"
@@ -2467,8 +2752,10 @@
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Data Início</label>
+              <label htmlFor="task-start" className="block text-sm font-medium mb-2">Data Início</label>
               <input
+                id="task-start"
+                name="task-start"
                 type="date"
                 value={formData.start}
                 onChange={(e) => setFormData({ ...formData, start: e.target.value })}
@@ -2477,8 +2764,10 @@
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Data Fim</label>
+              <label htmlFor="task-end" className="block text-sm font-medium mb-2">Data Fim</label>
               <input
+                id="task-end"
+                name="task-end"
                 type="date"
                 value={formData.end}
                 onChange={(e) => setFormData({ ...formData, end: e.target.value })}
@@ -2492,6 +2781,8 @@
             <label className="block text-sm font-medium mb-2">Responsável</label>
             {team && team.length > 0 ? (
               <select
+                id="task-assignee"
+                name="task-assignee"
                 value={formData.assignee}
                 onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
                 className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 ring-primary"
@@ -2503,6 +2794,8 @@
               </select>
             ) : (
               <input
+                id="task-assignee"
+                name="task-assignee"
                 type="text"
                 value={formData.assignee}
                 onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
@@ -4169,12 +4462,12 @@
 
             <form onSubmit={handleSubmit} className="space-y-3">
               {mode === 'register' && (
-                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome"
+                <input id="auth-name" name="name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome"
                   className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
               )}
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required
+              <input id="auth-email" name="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required
                 className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Senha" required minLength={6}
+              <input id="auth-password" name="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Senha" required minLength={6}
                 className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
               {error && <p className="text-red-400 text-xs">{error}</p>}
               <button type="submit" disabled={loading}
