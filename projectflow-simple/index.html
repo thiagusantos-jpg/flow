@@ -4769,13 +4769,14 @@
 
     // Auth Screen - Login/Register
     function AuthScreen({ onLogin, authAvailable = true }) {
-      const [mode, setMode] = useState('login'); // login | register
+      const [mode, setMode] = useState('login'); // login | register | forgot
       const [email, setEmail] = useState('');
       const [password, setPassword] = useState('');
       const [name, setName] = useState('');
       const [error, setError] = useState('');
       const [loading, setLoading] = useState(false);
       const [showSetup, setShowSetup] = useState(false);
+      const [resetSent, setResetSent] = useState(false);
 
       const isAuthError = (code) => {
         return code === 'auth/configuration-not-found' || code === 'auth/internal-error' || code === 'auth/network-request-failed';
@@ -4837,6 +4838,25 @@
         onLogin(null); // null = guest mode
       };
 
+      const handleForgotPassword = async (e) => {
+        e.preventDefault();
+        if (!email.trim()) { setError('Digite seu email'); return; }
+        setError('');
+        setLoading(true);
+        try {
+          await auth.sendPasswordResetEmail(email.trim());
+          setResetSent(true);
+        } catch (err) {
+          const msgs = {
+            'auth/user-not-found': 'Nenhuma conta encontrada com este email',
+            'auth/invalid-email': 'Email invalido',
+            'auth/too-many-requests': 'Muitas tentativas. Tente novamente depois',
+          };
+          setError(msgs[err.code] || `Erro: ${err.message}`);
+        }
+        setLoading(false);
+      };
+
       return (
         <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b, #0f172a)' }}>
           <div className="glass rounded-2xl p-8 max-w-sm w-full animate-scale-in">
@@ -4862,43 +4882,80 @@
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-3">
-              {mode === 'register' && (
-                <input id="auth-name" name="name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome"
+            {mode === 'forgot' ? (
+              <div className="space-y-3">
+                {resetSent ? (
+                  <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center">
+                    <div className="text-2xl mb-2">📧</div>
+                    <p className="text-emerald-300 text-sm font-semibold mb-1">Email enviado!</p>
+                    <p className="text-emerald-200/70 text-xs">Verifique sua caixa de entrada e spam em <strong>{email}</strong>. Clique no link para criar uma nova senha.</p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleForgotPassword} className="space-y-3">
+                    <p className="text-xs text-slate-400 text-center">Digite seu email para receber o link de recuperacao de senha.</p>
+                    <input id="auth-email" name="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email cadastrado" required autoFocus
+                      className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
+                    {error && <p className="text-red-400 text-xs">{error}</p>}
+                    <button type="submit" disabled={loading}
+                      className="w-full py-2.5 btn-primary rounded-lg text-sm font-semibold transition disabled:opacity-50">
+                      {loading ? 'Enviando...' : 'Enviar link de recuperacao'}
+                    </button>
+                  </form>
+                )}
+                <button onClick={() => { setMode('login'); setError(''); setResetSent(false); }} className="w-full text-center text-xs text-primary hover:underline mt-2">
+                  Voltar para login
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-3">
+                {mode === 'register' && (
+                  <input id="auth-name" name="name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome"
+                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
+                )}
+                <input id="auth-email" name="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required
                   className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
-              )}
-              <input id="auth-email" name="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required
-                className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
-              <input id="auth-password" name="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Senha" required minLength={6}
-                className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
-              {error && <p className="text-red-400 text-xs">{error}</p>}
-              <button type="submit" disabled={loading}
-                className="w-full py-2.5 btn-primary rounded-lg text-sm font-semibold transition disabled:opacity-50">
-                {loading ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar Conta'}
-              </button>
-            </form>
+                <input id="auth-password" name="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Senha" required minLength={6}
+                  className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 ring-primary" />
+                {mode === 'login' && (
+                  <div className="text-right">
+                    <button type="button" onClick={() => { setMode('forgot'); setError(''); }} className="text-xs text-slate-400 hover:text-primary transition">
+                      Esqueci minha senha
+                    </button>
+                  </div>
+                )}
+                {error && <p className="text-red-400 text-xs">{error}</p>}
+                <button type="submit" disabled={loading}
+                  className="w-full py-2.5 btn-primary rounded-lg text-sm font-semibold transition disabled:opacity-50">
+                  {loading ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar Conta'}
+                </button>
+              </form>
+            )}
 
-            <div className="my-4 flex items-center gap-3">
-              <div className="flex-1 h-px bg-white/10" /><span className="text-xs text-slate-500">ou</span><div className="flex-1 h-px bg-white/10" />
-            </div>
+            {mode !== 'forgot' && (
+              <>
+                <div className="my-4 flex items-center gap-3">
+                  <div className="flex-1 h-px bg-white/10" /><span className="text-xs text-slate-500">ou</span><div className="flex-1 h-px bg-white/10" />
+                </div>
 
-            <button onClick={handleGoogle} disabled={loading}
-              className="w-full py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm font-medium text-white hover:bg-white/10 transition flex items-center justify-center gap-2 disabled:opacity-50 mb-2">
-              <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-              Entrar com Google
-            </button>
+                <button onClick={handleGoogle} disabled={loading}
+                  className="w-full py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm font-medium text-white hover:bg-white/10 transition flex items-center justify-center gap-2 disabled:opacity-50 mb-2">
+                  <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                  Entrar com Google
+                </button>
 
-            <button onClick={handleGuest} className="w-full py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-sm font-medium text-emerald-400 hover:bg-emerald-500/20 transition">
-              Continuar sem conta (modo local)
-            </button>
+                <button onClick={handleGuest} className="w-full py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-sm font-medium text-emerald-400 hover:bg-emerald-500/20 transition">
+                  Continuar sem conta (modo local)
+                </button>
 
-            <div className="text-center mt-4">
-              {mode === 'login' ? (
-                <p className="text-xs text-slate-500">Nao tem conta? <button onClick={() => { setMode('register'); setError(''); }} className="text-primary hover:underline">Criar conta</button></p>
-              ) : (
-                <p className="text-xs text-slate-500">Ja tem conta? <button onClick={() => { setMode('login'); setError(''); }} className="text-primary hover:underline">Entrar</button></p>
-              )}
-            </div>
+                <div className="text-center mt-4">
+                  {mode === 'login' ? (
+                    <p className="text-xs text-slate-500">Nao tem conta? <button onClick={() => { setMode('register'); setError(''); }} className="text-primary hover:underline">Criar conta</button></p>
+                  ) : (
+                    <p className="text-xs text-slate-500">Ja tem conta? <button onClick={() => { setMode('login'); setError(''); }} className="text-primary hover:underline">Entrar</button></p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       );
