@@ -879,6 +879,103 @@
       ]
     });
 
+    // Project Templates by Event Type
+    const PROJECT_TEMPLATES = {
+      convencao: {
+        label: 'Convenção',
+        icon: '🏛️',
+        color: '#6366F1',
+        tasks: [
+          { name: 'Briefing e Alinhamento', description: 'Reunião com cliente para definir objetivos, público-alvo, tema e expectativas da convenção', priority: 'high', dayOffset: 0, duration: 5 },
+          { name: 'Conceito Criativo', description: 'Desenvolvimento do conceito criativo, naming e identidade visual do evento', priority: 'high', dayOffset: 5, duration: 7 },
+          { name: 'Aprovação do Conceito', description: 'Apresentação e aprovação do conceito criativo pelo cliente', priority: 'high', dayOffset: 12, duration: 3 },
+          { name: 'Seleção de Venue', description: 'Pesquisa, visita técnica e contratação do local do evento', priority: 'high', dayOffset: 7, duration: 10 },
+          { name: 'Programação e Palestrantes', description: 'Definição da agenda, curadoria de conteúdo e contratação de palestrantes', priority: 'medium', dayOffset: 15, duration: 14 },
+          { name: 'Cenografia e Palco', description: 'Projeto cenográfico do palco principal, áreas de apoio e sinalização', priority: 'medium', dayOffset: 18, duration: 12 },
+          { name: 'Produção de Conteúdo', description: 'Criação de vinhetas, apresentações, vídeos institucionais e materiais gráficos', priority: 'medium', dayOffset: 20, duration: 15 },
+          { name: 'Logística e Hospedagem', description: 'Gestão de transporte, hospedagem, credenciamento e alimentação dos participantes', priority: 'medium', dayOffset: 25, duration: 10 },
+          { name: 'Ensaio Técnico', description: 'Montagem, teste de som/luz/vídeo, passagem de pauta e ensaio geral', priority: 'high', dayOffset: 38, duration: 2 },
+          { name: 'Execução do Evento', description: 'Operação completa do evento com equipe de produção e apoio técnico', priority: 'high', dayOffset: 40, duration: 2 },
+          { name: 'Desmontagem e Relatório', description: 'Desmontagem, relatório de resultados, fotos/vídeos e pesquisa de satisfação', priority: 'low', dayOffset: 42, duration: 5 },
+        ]
+      },
+      ativacao: {
+        label: 'Ativação de Marca',
+        icon: '🎯',
+        color: '#F59E0B',
+        tasks: [
+          { name: 'Briefing e Estratégia', description: 'Reunião para definir objetivos da ativação, público-alvo, locais e métricas de sucesso', priority: 'high', dayOffset: 0, duration: 3 },
+          { name: 'Conceito da Ativação', description: 'Criação do conceito criativo da ativação, mecânica de interação e experiência do público', priority: 'high', dayOffset: 3, duration: 5 },
+          { name: 'Aprovação do Cliente', description: 'Apresentação do conceito e mecânica para aprovação do cliente', priority: 'high', dayOffset: 8, duration: 3 },
+          { name: 'Design de Materiais', description: 'Criação de KV, peças gráficas, materiais de PDV e brindes', priority: 'medium', dayOffset: 11, duration: 7 },
+          { name: 'Produção de Estruturas', description: 'Fabricação de displays, totens, cenografia e materiais de apoio', priority: 'medium', dayOffset: 14, duration: 10 },
+          { name: 'Contratação de Equipe', description: 'Seleção e treinamento de promotores, recepcionistas e equipe de apoio', priority: 'medium', dayOffset: 18, duration: 5 },
+          { name: 'Logística e Montagem', description: 'Transporte de materiais, montagem no local e testes de funcionamento', priority: 'high', dayOffset: 24, duration: 2 },
+          { name: 'Execução da Ativação', description: 'Operação da ativação com equipe no local, registro fotográfico e gestão em tempo real', priority: 'high', dayOffset: 26, duration: 3 },
+          { name: 'Relatório de Resultados', description: 'Compilação de métricas, fotos, depoimentos e relatório final para o cliente', priority: 'low', dayOffset: 29, duration: 4 },
+        ]
+      },
+      estande: {
+        label: 'Estande em Feira',
+        icon: '🏗️',
+        color: '#10B981',
+        tasks: [
+          { name: 'Briefing e Objetivos', description: 'Definir objetivos de participação na feira, produtos a destacar e metas de geração de leads', priority: 'high', dayOffset: 0, duration: 3 },
+          { name: 'Projeto do Estande', description: 'Design do estande em 2D/3D com layout, circulação, áreas de reunião e vitrine de produtos', priority: 'high', dayOffset: 3, duration: 10 },
+          { name: 'Aprovação do Projeto', description: 'Aprovação do layout e design do estande pelo cliente e pela organização da feira', priority: 'high', dayOffset: 13, duration: 4 },
+          { name: 'Produção e Montadora', description: 'Contratação de montadora, fabricação de estruturas, painéis e mobiliário', priority: 'high', dayOffset: 17, duration: 15 },
+          { name: 'Conteúdo e Materiais', description: 'Criação de painéis gráficos, vídeos para telas, catálogos e brindes', priority: 'medium', dayOffset: 17, duration: 12 },
+          { name: 'Tecnologia e Interatividade', description: 'Setup de telas, totens interativos, sistema de captura de leads e Wi-Fi', priority: 'medium', dayOffset: 25, duration: 5 },
+          { name: 'Equipe e Treinamento', description: 'Seleção de recepcionistas, treinamento do time comercial e briefing de equipe', priority: 'medium', dayOffset: 28, duration: 3 },
+          { name: 'Montagem', description: 'Montagem do estande no local da feira, testes e ajustes finais', priority: 'high', dayOffset: 32, duration: 3 },
+          { name: 'Operação na Feira', description: 'Operação diária do estande, gestão de agenda de reuniões e suporte técnico', priority: 'high', dayOffset: 35, duration: 4 },
+          { name: 'Desmontagem e Follow-up', description: 'Desmontagem, relatório de leads gerados, ROI e plano de follow-up', priority: 'low', dayOffset: 39, duration: 5 },
+        ]
+      },
+      viagem: {
+        label: 'Viagem de Incentivo',
+        icon: '✈️',
+        color: '#EC4899',
+        tasks: [
+          { name: 'Briefing e Perfil do Grupo', description: 'Definir objetivos da viagem, perfil dos participantes, orçamento e preferências', priority: 'high', dayOffset: 0, duration: 3 },
+          { name: 'Pesquisa de Destino', description: 'Pesquisa de destinos, roteiros e fornecedores locais compatíveis com o perfil', priority: 'high', dayOffset: 3, duration: 7 },
+          { name: 'Proposta e Orçamento', description: 'Elaboração de proposta detalhada com roteiro, orçamento e opções de personalização', priority: 'high', dayOffset: 10, duration: 5 },
+          { name: 'Aprovação e Contratação', description: 'Aprovação da proposta pelo cliente e contratação de aéreo, hotel e receptivo', priority: 'high', dayOffset: 15, duration: 5 },
+          { name: 'Programação de Atividades', description: 'Definição de atividades, jantares temáticos, passeios e experiências exclusivas', priority: 'medium', dayOffset: 20, duration: 10 },
+          { name: 'Comunicação aos Participantes', description: 'Criação de convites, guia do viajante, app do evento e régua de comunicação', priority: 'medium', dayOffset: 20, duration: 8 },
+          { name: 'Materiais e Brindes', description: 'Produção de kits de viagem, brindes personalizados e materiais de apoio', priority: 'low', dayOffset: 25, duration: 10 },
+          { name: 'Logística de Voos e Transfers', description: 'Emissão de passagens, organização de transfers e confirmação de reservas', priority: 'high', dayOffset: 30, duration: 5 },
+          { name: 'Execução da Viagem', description: 'Acompanhamento da viagem com equipe de produção, gestão de imprevistos', priority: 'high', dayOffset: 38, duration: 5 },
+          { name: 'Pós-viagem e Relatório', description: 'Envio de fotos/vídeos, pesquisa de satisfação e relatório final', priority: 'low', dayOffset: 43, duration: 5 },
+        ]
+      }
+    };
+
+    const generateTemplateTasks = (templateKey, startDate) => {
+      const template = PROJECT_TEMPLATES[templateKey];
+      if (!template) return [];
+      const baseDate = startDate ? new Date(startDate + 'T00:00:00') : new Date();
+      return template.tasks.map((t, idx) => {
+        const taskStart = new Date(baseDate);
+        taskStart.setDate(taskStart.getDate() + t.dayOffset);
+        const taskEnd = new Date(taskStart);
+        taskEnd.setDate(taskEnd.getDate() + t.duration);
+        return {
+          id: Date.now() + idx + 1,
+          name: t.name,
+          description: t.description,
+          start: taskStart.toISOString().split('T')[0],
+          end: taskEnd.toISOString().split('T')[0],
+          status: 'pending',
+          progress: 0,
+          priority: t.priority,
+          assignee: '',
+          tags: [],
+          dependencies: idx > 0 ? [] : []
+        };
+      });
+    };
+
     // Firebase helpers
     const saveToFirebase = (projectsData, prefix) => {
       try {
@@ -1395,6 +1492,9 @@
       }, [currentProject, sortedTasks]);
 
       const addProject = (projectData) => {
+        const templateTasks = projectData.eventType
+          ? generateTemplateTasks(projectData.eventType, projectData.deadline || new Date().toISOString().split('T')[0])
+          : [];
         const newProject = {
           id: Date.now(),
           name: projectData.name,
@@ -1403,13 +1503,18 @@
           briefing: projectData.briefing || '',
           color: projectData.color,
           deadline: projectData.deadline || '',
+          eventType: projectData.eventType || '',
           status: 'active',
-          tasks: []
+          tasks: templateTasks
         };
         setProjects(prev => [...prev, newProject]);
         setSelectedProject(newProject.id);
         setShowNewProject(false);
-        showToast(`Projeto "${projectData.name}" criado`, 'success');
+        const templateLabel = projectData.eventType ? PROJECT_TEMPLATES[projectData.eventType]?.label : '';
+        const msg = templateLabel
+          ? `Projeto "${projectData.name}" criado com template "${templateLabel}" (${templateTasks.length} tarefas)`
+          : `Projeto "${projectData.name}" criado`;
+        showToast(msg, 'success');
         addActivity('Projeto criado', projectData.name);
       };
 
@@ -3068,7 +3173,16 @@
 
     // New Project Form Component
     function NewProjectForm({ onSave, onCancel }) {
-      const [form, setForm] = useState({ name: '', client: '', description: '', color: '#FF6B35', deadline: '' });
+      const [form, setForm] = useState({ name: '', client: '', description: '', color: '#FF6B35', deadline: '', eventType: '' });
+
+      const handleEventTypeSelect = (key) => {
+        const template = PROJECT_TEMPLATES[key];
+        setForm(prev => ({
+          ...prev,
+          eventType: prev.eventType === key ? '' : key,
+          color: prev.eventType === key ? '#FF6B35' : (template ? template.color : '#FF6B35')
+        }));
+      };
 
       const handleSubmit = (e) => {
         e.preventDefault();
@@ -3079,6 +3193,28 @@
 
       return (
         <form onSubmit={handleSubmit} className="mt-4 p-4 bg-white/5 rounded-xl animate-scale-in space-y-3">
+          {/* Event Type Selector */}
+          <div>
+            <label className="block text-xs text-white/50 mb-2">Tipo de Evento (opcional)</label>
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(PROJECT_TEMPLATES).map(([key, tpl]) => (
+                <button key={key} type="button" onClick={() => handleEventTypeSelect(key)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition border ${
+                    form.eventType === key
+                      ? 'border-primary bg-primary/20 text-white'
+                      : 'border-white/10 bg-white/5 hover:bg-white/10 text-white/70'
+                  }`}>
+                  <span>{tpl.icon}</span>
+                  <span>{tpl.label}</span>
+                </button>
+              ))}
+            </div>
+            {form.eventType && (
+              <p className="text-xs text-white/40 mt-1.5">
+                {PROJECT_TEMPLATES[form.eventType].tasks.length} tarefas serão criadas automaticamente
+              </p>
+            )}
+          </div>
           <input id="project-name" name="project-name" type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="Nome do projeto" className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary" autoFocus required />
           <input id="project-client" name="project-client" type="text" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })}
