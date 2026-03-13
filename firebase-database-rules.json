@@ -1,32 +1,22 @@
 {
   "rules": {
-    // Dados dos usuários - cada usuário acessa apenas seus próprios dados
     "users": {
       "$uid": {
-        // Usuário pode ler e escrever apenas seus próprios dados
         ".read": "$uid === auth.uid",
         ".write": "$uid === auth.uid",
-
-        // Projetos do usuário
         "projects": {
           "$projectId": {
             ".validate": "newData.hasChildren(['id', 'name']) && newData.child('id').val() == $projectId"
           }
         },
-
-        // Time do usuário
         "team": {
           "$memberId": {
             ".validate": "newData.hasChildren(['id', 'name'])"
           }
         },
-
-        // Configuração de email
         "emailConfig": {
           ".validate": "newData.isObject()"
         },
-
-        // Logs de tempo
         "timeLogs": {
           "$logId": {
             ".validate": "newData.hasChildren(['date']) && newData.child('date').val() != null"
@@ -34,36 +24,24 @@
         }
       }
     },
-
-    // Gestão de roles e permissões de administrador
     "adminUsers": {
       "$uid": {
-        // Apenas lê seus próprios dados
         ".read": "$uid === auth.uid",
-
-        // Admin pode gerenciar qualquer usuário, outros só podem atualizar a si mesmos
         ".write": "root.child('adminUsers').child(auth.uid).child('role').val() === 'admin' || $uid === auth.uid",
-
-        // Valida estrutura de dados
         "role": {
           ".validate": "newData.val() === 'admin' || newData.val() === 'member' || newData.val() === 'viewer'"
         },
-
         "displayName": {
           ".validate": "newData.isString() && newData.val().length > 0"
         },
-
         "email": {
           ".validate": "newData.isString() && newData.val().length > 0"
         },
-
         "lastActive": {
           ".validate": "newData.isNumber()"
         }
       }
     },
-
-    // Nega acesso a caminhos não definidos
     ".read": false,
     ".write": false
   }
