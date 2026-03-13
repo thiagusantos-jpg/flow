@@ -882,7 +882,8 @@
     // Firebase helpers
     const saveToFirebase = (projectsData, prefix) => {
       try {
-        const path = prefix ? `${prefix}/projects` : 'projects';
+        if (!prefix) return;
+        const path = `${prefix}/projects`;
         db.ref(path).set(projectsData);
       } catch (e) {
         console.error('Erro ao salvar no Firebase:', e);
@@ -891,7 +892,8 @@
 
     const saveTeamToFirebase = (teamData, prefix) => {
       try {
-        const path = prefix ? `${prefix}/team` : 'team';
+        if (!prefix) return;
+        const path = `${prefix}/team`;
         db.ref(path).set(teamData);
       } catch (e) {
         console.error('Erro ao salvar equipe no Firebase:', e);
@@ -900,7 +902,8 @@
 
     const saveTimeLogsToFirebase = (logs, prefix) => {
       try {
-        const path = prefix ? `${prefix}/timeLogs` : 'timeLogs';
+        if (!prefix) return;
+        const path = `${prefix}/timeLogs`;
         db.ref(path).set(logs);
       } catch (e) {
         console.error('Erro ao salvar time logs no Firebase:', e);
@@ -925,7 +928,8 @@
 
     const saveEmailConfigToFirebase = (config, prefix) => {
       try {
-        const path = prefix ? `${prefix}/emailConfig` : 'emailConfig';
+        if (!prefix) return;
+        const path = `${prefix}/emailConfig`;
         db.ref(path).set(config);
       } catch (e) {
         console.error('Erro ao salvar config email no Firebase:', e);
@@ -955,8 +959,8 @@
 
     // Main App Component
     function ProjectManager({ currentUser, onLogout }) {
-      // Firebase paths: user-specific if logged in, shared if guest
-      const dbPrefix = currentUser ? `users/${currentUser.uid}` : '';
+      // Firebase path: sync only for authenticated users
+      const dbPrefix = currentUser ? `users/${currentUser.uid}` : null;
       const [projects, setProjects] = useState([]);
       const [selectedProject, setSelectedProject] = useState(null);
       const [view, setView] = useState('home');
@@ -1066,10 +1070,33 @@
       // Firebase: real-time sync (load + listen for changes from other users)
       // Uses user-specific paths when authenticated
       useEffect(() => {
-        const pPath = dbPrefix ? `${dbPrefix}/projects` : 'projects';
-        const tPath = dbPrefix ? `${dbPrefix}/team` : 'team';
-        const ePath = dbPrefix ? `${dbPrefix}/emailConfig` : 'emailConfig';
-        const tlPath = dbPrefix ? `${dbPrefix}/timeLogs` : 'timeLogs';
+        if (!dbPrefix) {
+          setCloudStatus('offline');
+          if (isFirstLoad.current) {
+            const saved = localStorage.getItem('projectflow-projects');
+            if (saved) {
+              try {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  setProjects(parsed);
+                  setSelectedProject(parsed[0].id);
+                  isFirstLoad.current = false;
+                  return;
+                }
+              } catch (e) {}
+            }
+            const demo = createDemoProject();
+            setProjects([demo]);
+            setSelectedProject(demo.id);
+            isFirstLoad.current = false;
+          }
+          return;
+        }
+
+        const pPath = `${dbPrefix}/projects`;
+        const tPath = `${dbPrefix}/team`;
+        const ePath = `${dbPrefix}/emailConfig`;
+        const tlPath = `${dbPrefix}/timeLogs`;
 
         const projectsRef = db.ref(pPath);
 
