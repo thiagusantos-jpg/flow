@@ -879,12 +879,19 @@
       ]
     });
 
-    // Project Templates by Event Type
+    // Project Templates by Event Type (Fase 1)
+    const PROJECT_SIZE_MULTIPLIER = {
+      pequeno: 0.85,
+      medio: 1,
+      grande: 1.2,
+    };
+
     const PROJECT_TEMPLATES = {
       convencao: {
         label: 'Convenção',
         icon: '🏛️',
         color: '#6366F1',
+        leadTimeDays: 45,
         tasks: [
           { name: 'Briefing e Alinhamento', description: 'Reunião com cliente para definir objetivos, público-alvo, tema e expectativas da convenção', priority: 'high', dayOffset: 0, duration: 5 },
           { name: 'Conceito Criativo', description: 'Desenvolvimento do conceito criativo, naming e identidade visual do evento', priority: 'high', dayOffset: 5, duration: 7 },
@@ -903,6 +910,7 @@
         label: 'Ativação de Marca',
         icon: '🎯',
         color: '#F59E0B',
+        leadTimeDays: 30,
         tasks: [
           { name: 'Briefing e Estratégia', description: 'Reunião para definir objetivos da ativação, público-alvo, locais e métricas de sucesso', priority: 'high', dayOffset: 0, duration: 3 },
           { name: 'Conceito da Ativação', description: 'Criação do conceito criativo da ativação, mecânica de interação e experiência do público', priority: 'high', dayOffset: 3, duration: 5 },
@@ -919,6 +927,7 @@
         label: 'Estande em Feira',
         icon: '🏗️',
         color: '#10B981',
+        leadTimeDays: 40,
         tasks: [
           { name: 'Briefing e Objetivos', description: 'Definir objetivos de participação na feira, produtos a destacar e metas de geração de leads', priority: 'high', dayOffset: 0, duration: 3 },
           { name: 'Projeto do Estande', description: 'Design do estande em 2D/3D com layout, circulação, áreas de reunião e vitrine de produtos', priority: 'high', dayOffset: 3, duration: 10 },
@@ -931,35 +940,22 @@
           { name: 'Operação na Feira', description: 'Operação diária do estande, gestão de agenda de reuniões e suporte técnico', priority: 'high', dayOffset: 35, duration: 4 },
           { name: 'Desmontagem e Follow-up', description: 'Desmontagem, relatório de leads gerados, ROI e plano de follow-up', priority: 'low', dayOffset: 39, duration: 5 },
         ]
-      },
-      viagem: {
-        label: 'Viagem de Incentivo',
-        icon: '✈️',
-        color: '#EC4899',
-        tasks: [
-          { name: 'Briefing e Perfil do Grupo', description: 'Definir objetivos da viagem, perfil dos participantes, orçamento e preferências', priority: 'high', dayOffset: 0, duration: 3 },
-          { name: 'Pesquisa de Destino', description: 'Pesquisa de destinos, roteiros e fornecedores locais compatíveis com o perfil', priority: 'high', dayOffset: 3, duration: 7 },
-          { name: 'Proposta e Orçamento', description: 'Elaboração de proposta detalhada com roteiro, orçamento e opções de personalização', priority: 'high', dayOffset: 10, duration: 5 },
-          { name: 'Aprovação e Contratação', description: 'Aprovação da proposta pelo cliente e contratação de aéreo, hotel e receptivo', priority: 'high', dayOffset: 15, duration: 5 },
-          { name: 'Programação de Atividades', description: 'Definição de atividades, jantares temáticos, passeios e experiências exclusivas', priority: 'medium', dayOffset: 20, duration: 10 },
-          { name: 'Comunicação aos Participantes', description: 'Criação de convites, guia do viajante, app do evento e régua de comunicação', priority: 'medium', dayOffset: 20, duration: 8 },
-          { name: 'Materiais e Brindes', description: 'Produção de kits de viagem, brindes personalizados e materiais de apoio', priority: 'low', dayOffset: 25, duration: 10 },
-          { name: 'Logística de Voos e Transfers', description: 'Emissão de passagens, organização de transfers e confirmação de reservas', priority: 'high', dayOffset: 30, duration: 5 },
-          { name: 'Execução da Viagem', description: 'Acompanhamento da viagem com equipe de produção, gestão de imprevistos', priority: 'high', dayOffset: 38, duration: 5 },
-          { name: 'Pós-viagem e Relatório', description: 'Envio de fotos/vídeos, pesquisa de satisfação e relatório final', priority: 'low', dayOffset: 43, duration: 5 },
-        ]
       }
     };
 
-    const generateTemplateTasks = (templateKey, startDate) => {
+    const generateTemplateTasks = (templateKey, eventDate, projectSize = 'medio') => {
       const template = PROJECT_TEMPLATES[templateKey];
       if (!template) return [];
-      const baseDate = startDate ? new Date(startDate + 'T00:00:00') : new Date();
+      const sizeMultiplier = PROJECT_SIZE_MULTIPLIER[projectSize] || 1;
+      const eventBaseDate = eventDate ? new Date(eventDate + 'T00:00:00') : new Date();
+      const baseDate = new Date(eventBaseDate);
+      baseDate.setDate(baseDate.getDate() - Math.round((template.leadTimeDays || 30) * sizeMultiplier));
+
       return template.tasks.map((t, idx) => {
         const taskStart = new Date(baseDate);
-        taskStart.setDate(taskStart.getDate() + t.dayOffset);
+        taskStart.setDate(taskStart.getDate() + Math.round(t.dayOffset * sizeMultiplier));
         const taskEnd = new Date(taskStart);
-        taskEnd.setDate(taskEnd.getDate() + t.duration);
+        taskEnd.setDate(taskEnd.getDate() + Math.max(1, Math.round(t.duration * sizeMultiplier)));
         return {
           id: Date.now() + idx + 1,
           name: t.name,
@@ -1493,7 +1489,11 @@
 
       const addProject = (projectData) => {
         const templateTasks = projectData.eventType
-          ? generateTemplateTasks(projectData.eventType, projectData.deadline || new Date().toISOString().split('T')[0])
+          ? generateTemplateTasks(
+              projectData.eventType,
+              projectData.deadline || new Date().toISOString().split('T')[0],
+              projectData.projectSize || 'medio'
+            )
           : [];
         const newProject = {
           id: Date.now(),
@@ -1504,6 +1504,7 @@
           color: projectData.color,
           deadline: projectData.deadline || '',
           eventType: projectData.eventType || '',
+          projectSize: projectData.projectSize || 'medio',
           status: 'active',
           tasks: templateTasks
         };
@@ -3173,7 +3174,7 @@
 
     // New Project Form Component
     function NewProjectForm({ onSave, onCancel }) {
-      const [form, setForm] = useState({ name: '', client: '', description: '', color: '#FF6B35', deadline: '', eventType: '' });
+      const [form, setForm] = useState({ name: '', client: '', description: '', color: '#FF6B35', deadline: '', eventType: '', projectSize: 'medio' });
 
       const handleEventTypeSelect = (key) => {
         const template = PROJECT_TEMPLATES[key];
@@ -3195,7 +3196,7 @@
         <form onSubmit={handleSubmit} className="mt-4 p-4 bg-white/5 rounded-xl animate-scale-in space-y-3">
           {/* Event Type Selector */}
           <div>
-            <label className="block text-xs text-white/50 mb-2">Tipo de Evento (opcional)</label>
+            <label className="block text-xs text-white/50 mb-2">Tipo de Evento</label>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(PROJECT_TEMPLATES).map(([key, tpl]) => (
                 <button key={key} type="button" onClick={() => handleEventTypeSelect(key)}
@@ -3215,6 +3216,29 @@
               </p>
             )}
           </div>
+          <div>
+            <label className="block text-xs text-white/50 mb-2">Porte do evento</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { key: 'pequeno', label: 'Pequeno' },
+                { key: 'medio', label: 'Médio' },
+                { key: 'grande', label: 'Grande' },
+              ].map(size => (
+                <button
+                  key={size.key}
+                  type="button"
+                  onClick={() => setForm({ ...form, projectSize: size.key })}
+                  className={`px-2 py-2 rounded-lg text-xs font-medium border transition ${
+                    form.projectSize === size.key
+                      ? 'border-primary bg-primary/20 text-white'
+                      : 'border-white/10 bg-white/5 hover:bg-white/10 text-white/70'
+                  }`}
+                >
+                  {size.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <input id="project-name" name="project-name" type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="Nome do projeto" className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary" autoFocus required />
           <input id="project-client" name="project-client" type="text" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })}
@@ -3222,7 +3246,7 @@
           <input id="project-description" name="project-description" type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
             placeholder="Descrição breve" className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary" />
           <input id="project-deadline" name="project-deadline" type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })}
-            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-xs focus:outline-none focus:ring-2 ring-primary" title="Prazo do projeto" />
+            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-xs focus:outline-none focus:ring-2 ring-primary" title="Data do evento" />
           <ColorPicker value={form.color} onChange={(c) => setForm({ ...form, color: c })} />
           <div className="flex gap-2">
             <button type="submit" className="flex-1 px-3 py-2 bg-primary rounded-lg text-sm font-medium transition">Criar</button>
