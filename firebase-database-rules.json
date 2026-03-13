@@ -3,43 +3,13 @@
     "users": {
       "$uid": {
         ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid",
-        "projects": {
-          "$projectId": {
-            ".validate": "newData.hasChildren(['id', 'name']) && newData.child('id').val() == $projectId"
-          }
-        },
-        "team": {
-          "$memberId": {
-            ".validate": "newData.hasChildren(['id', 'name'])"
-          }
-        },
-        "emailConfig": {
-          ".validate": "newData.isObject()"
-        },
-        "timeLogs": {
-          "$logId": {
-            ".validate": "newData.hasChildren(['date']) && newData.child('date').val() != null"
-          }
-        }
+        ".write": "$uid === auth.uid"
       }
     },
     "adminUsers": {
       "$uid": {
         ".read": "$uid === auth.uid",
-        ".write": "root.child('adminUsers').child(auth.uid).child('role').val() === 'admin' || $uid === auth.uid",
-        "role": {
-          ".validate": "newData.val() === 'admin' || newData.val() === 'member' || newData.val() === 'viewer'"
-        },
-        "displayName": {
-          ".validate": "newData.isString() && newData.val().length > 0"
-        },
-        "email": {
-          ".validate": "newData.isString() && newData.val().length > 0"
-        },
-        "lastActive": {
-          ".validate": "newData.isNumber()"
-        }
+        ".write": "root.child('adminUsers').child(auth.uid).child('role').val() === 'admin' || $uid === auth.uid"
       }
     },
     ".read": false,
