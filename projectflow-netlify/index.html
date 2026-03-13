@@ -886,7 +886,7 @@
       grande: 1.2,
     };
 
-    const PROJECT_TEMPLATES = {
+    const PROJECT_TEMPLATES_DEFAULT = {
       convencao: {
         label: 'Convenção',
         icon: '🏛️',
@@ -940,11 +940,36 @@
           { name: 'Operação na Feira', description: 'Operação diária do estande, gestão de agenda de reuniões e suporte técnico', priority: 'high', dayOffset: 35, duration: 4 },
           { name: 'Desmontagem e Follow-up', description: 'Desmontagem, relatório de leads gerados, ROI e plano de follow-up', priority: 'low', dayOffset: 39, duration: 5 },
         ]
+      },
+      viagem: {
+        label: 'Viagem de Incentivo',
+        icon: '✈️',
+        color: '#8B5CF6',
+        leadTimeDays: 60,
+        isDefault: true,
+        tasks: [
+          { name: 'Briefing e Objetivos', description: 'Definir destino, número de participantes, orçamento, tema e objetivos da viagem', priority: 'high', dayOffset: 0, duration: 4 },
+          { name: 'Seleção do Destino', description: 'Pesquisa, cotação e contratação do destino, hotel e pacote de viagem', priority: 'high', dayOffset: 4, duration: 10 },
+          { name: 'Aprovação e Contratação', description: 'Aprovação do pacote pelo cliente, assinatura de contratos com fornecedores', priority: 'high', dayOffset: 14, duration: 5 },
+          { name: 'Comunicação aos Participantes', description: 'Envio de convites, regulamento, cronograma e informações práticas da viagem', priority: 'medium', dayOffset: 19, duration: 7 },
+          { name: 'Documentação e Seguros', description: 'Checagem de documentos (passaportes, vistos), contratação de seguro viagem', priority: 'high', dayOffset: 20, duration: 10 },
+          { name: 'Programação do Evento', description: 'Criação da agenda de atividades, experiências, jantar de gala e premiação', priority: 'medium', dayOffset: 25, duration: 10 },
+          { name: 'Materiais e Brindes', description: 'Produção de kit do viajante, crachás, brindes personalizados e guia da viagem', priority: 'medium', dayOffset: 30, duration: 10 },
+          { name: 'Logística de Embarque', description: 'Organização de transfer, check-in, bagagens e suporte no aeroporto', priority: 'high', dayOffset: 52, duration: 3 },
+          { name: 'Execução da Viagem', description: 'Acompanhamento in loco com equipe de produção, suporte e gestão de imprevistos', priority: 'high', dayOffset: 55, duration: 5 },
+          { name: 'Relatório e Follow-up', description: 'Compilação de fotos/vídeos, pesquisa de satisfação e relatório de resultados', priority: 'low', dayOffset: 60, duration: 5 },
+        ]
       }
     };
 
-    const generateTemplateTasks = (templateKey, eventDate, projectSize = 'medio') => {
-      const template = PROJECT_TEMPLATES[templateKey];
+    // Mark default templates
+    Object.keys(PROJECT_TEMPLATES_DEFAULT).forEach(k => {
+      PROJECT_TEMPLATES_DEFAULT[k].isDefault = true;
+    });
+
+    const generateTemplateTasks = (templateKey, eventDate, projectSize = 'medio', templates) => {
+      const tplSource = templates || PROJECT_TEMPLATES_DEFAULT;
+      const template = tplSource[templateKey];
       if (!template) return [];
       const sizeMultiplier = PROJECT_SIZE_MULTIPLIER[projectSize] || 1;
       const eventBaseDate = eventDate ? new Date(eventDate + 'T00:00:00') : new Date();
@@ -1025,6 +1050,15 @@
       }
     };
 
+    const saveTemplatesToFirebase = (templates, prefix) => {
+      try {
+        const path = prefix ? `${prefix}/customTemplates` : 'customTemplates';
+        db.ref(path).set(templates);
+      } catch (e) {
+        console.error('Erro ao salvar templates no Firebase:', e);
+      }
+    };
+
     // Send email notification via EmailJS
     const sendTaskEmail = (emailConfig, member, task, projectName) => {
       if (!emailConfig || !emailConfig.serviceId || !emailConfig.templateId || !emailConfig.publicKey) return false;
@@ -1083,6 +1117,7 @@
       const [showAdminPanel, setShowAdminPanel] = useState(false);
       const [currentUserRole, setCurrentUserRole] = useState(null);
       const [allUsers, setAllUsers] = useState([]);
+      const [customTemplates, setCustomTemplates] = useState(PROJECT_TEMPLATES_DEFAULT);
       const [appSettings, setAppSettings] = useState(() => {
         try {
           const saved = localStorage.getItem('pf_settings');
@@ -1163,6 +1198,7 @@
         const tPath = dbPrefix ? `${dbPrefix}/team` : 'team';
         const ePath = dbPrefix ? `${dbPrefix}/emailConfig` : 'emailConfig';
         const tlPath = dbPrefix ? `${dbPrefix}/timeLogs` : 'timeLogs';
+        const ctPath = dbPrefix ? `${dbPrefix}/customTemplates` : 'customTemplates';
 
         const projectsRef = db.ref(pPath);
 
@@ -1246,12 +1282,22 @@
         };
         timeRef.on('value', handleTimeLogs);
 
+        const ctRef = db.ref(ctPath);
+        const handleCustomTemplates = (snapshot) => {
+          const data = snapshot.val();
+          if (data && typeof data === 'object' && !Array.isArray(data)) {
+            setCustomTemplates(data);
+          }
+        };
+        ctRef.on('value', handleCustomTemplates);
+
         return () => {
           projectsRef.off('value', handleData);
           connRef.off('value', connHandler);
           teamRef.off('value', handleTeamData);
           emailRef.off('value', handleEmailConfig);
           timeRef.off('value', handleTimeLogs);
+          ctRef.off('value', handleCustomTemplates);
         };
       }, []);
 
@@ -1492,7 +1538,8 @@
           ? generateTemplateTasks(
               projectData.eventType,
               projectData.deadline || new Date().toISOString().split('T')[0],
-              projectData.projectSize || 'medio'
+              projectData.projectSize || 'medio',
+              customTemplates
             )
           : [];
         const newProject = {
@@ -1956,6 +2003,7 @@
                   projectFilter={projectFilter}
                   setProjectFilter={setProjectFilter}
                   showConfirm={showConfirm}
+                  customTemplates={customTemplates}
                 />
               </aside>
 
@@ -1982,6 +2030,7 @@
                   projectFilter={projectFilter}
                   setProjectFilter={setProjectFilter}
                   showConfirm={showConfirm}
+                  customTemplates={customTemplates}
                 />
               </aside>
 
@@ -2366,7 +2415,7 @@
           )}
           {confirmModal && <ConfirmModal message={confirmModal.message} onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(null); }} onCancel={() => setConfirmModal(null)} />}
           {showGlobalSearch && <GlobalSearch projects={projects} onSelect={(projectId, task) => { setSelectedProject(projectId); if (task) setEditingTask(task); }} onClose={() => setShowGlobalSearch(false)} />}
-          {showAdminPanel && <AdminPanel currentUser={currentUser} currentUserRole={currentUserRole} allUsers={allUsers} projects={projects} timeLogs={timeLogs} onClose={() => setShowAdminPanel(false)} showConfirm={showConfirm} showToast={showToast} />}
+          {showAdminPanel && <AdminPanel currentUser={currentUser} currentUserRole={currentUserRole} allUsers={allUsers} projects={projects} timeLogs={timeLogs} customTemplates={customTemplates} onSaveTemplates={(updated) => { setCustomTemplates(updated); saveTemplatesToFirebase(updated, dbPrefix); }} onClose={() => setShowAdminPanel(false)} showConfirm={showConfirm} showToast={showToast} />}
 
           {/* Activity Log Modal */}
           {showActivityLog && (
@@ -2475,10 +2524,129 @@
       );
     }
 
+    // Template Editor Component
+    function TemplateEditor({ template, templateKey, onSave, onCancel }) {
+      const emptyTask = () => ({ name: '', description: '', priority: 'medium', dayOffset: 0, duration: 3 });
+      const [form, setForm] = React.useState(() => template
+        ? { label: template.label, icon: template.icon, color: template.color, leadTimeDays: template.leadTimeDays, tasks: template.tasks.map(t => ({ ...t })) }
+        : { label: '', icon: '📋', color: '#06b6d4', leadTimeDays: 30, tasks: [emptyTask()] }
+      );
+
+      const updateTask = (i, field, value) => {
+        setForm(prev => {
+          const tasks = [...prev.tasks];
+          tasks[i] = { ...tasks[i], [field]: field === 'dayOffset' || field === 'duration' ? Number(value) : value };
+          return { ...prev, tasks };
+        });
+      };
+      const addTask = () => setForm(prev => ({ ...prev, tasks: [...prev.tasks, emptyTask()] }));
+      const removeTask = (i) => setForm(prev => ({ ...prev, tasks: prev.tasks.filter((_, idx) => idx !== i) }));
+
+      const handleSave = () => {
+        if (!form.label.trim()) return;
+        if (form.tasks.length === 0 || !form.tasks[0].name.trim()) return;
+        const key = templateKey || form.label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 20) + '_' + Date.now();
+        onSave(key, { ...form, leadTimeDays: Number(form.leadTimeDays) });
+      };
+
+      return (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[110] animate-fade-in" onClick={onCancel}>
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <h3 className="font-bold text-base">{templateKey ? 'Editar Template' : 'Novo Template'}</h3>
+              <button onClick={onCancel} className="p-2 hover:bg-white/10 rounded-lg transition"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Basic info */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Nome do Template *</label>
+                  <input value={form.label} onChange={e => setForm(p => ({ ...p, label: e.target.value }))}
+                    placeholder="Ex: Workshop Corporativo"
+                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Ícone (emoji)</label>
+                  <input value={form.icon} onChange={e => setForm(p => ({ ...p, icon: e.target.value }))}
+                    placeholder="🎉"
+                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Lead Time (dias antes do evento)</label>
+                  <input type="number" min="7" max="365" value={form.leadTimeDays} onChange={e => setForm(p => ({ ...p, leadTimeDays: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm focus:outline-none focus:ring-2 ring-primary" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Cor</label>
+                  <ColorPicker value={form.color} onChange={c => setForm(p => ({ ...p, color: c }))} />
+                </div>
+              </div>
+
+              {/* Tasks */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs text-slate-400 font-medium">Tarefas ({form.tasks.length})</label>
+                  <button onClick={addTask} className="flex items-center gap-1 px-2 py-1 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg text-xs transition">
+                    + Tarefa
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {form.tasks.map((task, i) => (
+                    <div key={i} className="glass rounded-xl p-3 space-y-2">
+                      <div className="flex gap-2">
+                        <input value={task.name} onChange={e => updateTask(i, 'name', e.target.value)}
+                          placeholder="Nome da tarefa *"
+                          className="flex-1 px-2 py-1.5 bg-white/10 border border-white/20 rounded-lg text-xs focus:outline-none focus:ring-1 ring-primary" />
+                        <select value={task.priority} onChange={e => updateTask(i, 'priority', e.target.value)}
+                          className="px-2 py-1.5 bg-white/10 border border-white/20 rounded-lg text-xs focus:outline-none focus:ring-1 ring-primary">
+                          <option value="high">Alta</option>
+                          <option value="medium">Média</option>
+                          <option value="low">Baixa</option>
+                        </select>
+                        <button onClick={() => removeTask(i)} disabled={form.tasks.length === 1}
+                          className="p-1.5 hover:bg-red-500/20 rounded-lg transition text-slate-400 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <input value={task.description} onChange={e => updateTask(i, 'description', e.target.value)}
+                        placeholder="Descrição (opcional)"
+                        className="w-full px-2 py-1.5 bg-white/10 border border-white/20 rounded-lg text-xs focus:outline-none focus:ring-1 ring-primary" />
+                      <div className="flex gap-2 text-xs text-slate-400">
+                        <label className="flex items-center gap-1">
+                          Início (dia)
+                          <input type="number" min="0" value={task.dayOffset} onChange={e => updateTask(i, 'dayOffset', e.target.value)}
+                            className="w-14 px-2 py-1 bg-white/10 border border-white/20 rounded text-xs focus:outline-none focus:ring-1 ring-primary ml-1" />
+                        </label>
+                        <label className="flex items-center gap-1">
+                          Duração (dias)
+                          <input type="number" min="1" value={task.duration} onChange={e => updateTask(i, 'duration', e.target.value)}
+                            className="w-14 px-2 py-1 bg-white/10 border border-white/20 rounded text-xs focus:outline-none focus:ring-1 ring-primary ml-1" />
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 py-4 border-t border-white/10">
+              <button onClick={handleSave}
+                className="flex-1 px-4 py-2 bg-primary hover:bg-primary/80 rounded-lg text-sm font-medium transition">
+                {templateKey ? 'Salvar Alterações' : 'Criar Template'}
+              </button>
+              <button onClick={onCancel} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-medium transition">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     // Admin Panel Component
-    function AdminPanel({ currentUser, currentUserRole, allUsers, projects, timeLogs, onClose, showConfirm, showToast }) {
+    function AdminPanel({ currentUser, currentUserRole, allUsers, projects, timeLogs, customTemplates, onSaveTemplates, onClose, showConfirm, showToast }) {
       const [tab, setTab] = useState('users');
       const [roleChanging, setRoleChanging] = useState(null);
+      const [editingTemplate, setEditingTemplate] = useState(null); // null | 'new' | templateKey
 
       if (currentUserRole !== 'admin') return null;
 
@@ -2526,9 +2694,11 @@
         { key: 'users', label: 'Usuarios', icon: '👥' },
         { key: 'metrics', label: 'Metricas', icon: '📊' },
         { key: 'activity', label: 'Atividade', icon: '📝' },
+        { key: 'templates', label: 'Templates', icon: '📋' },
       ];
 
       return (
+        <React.Fragment>
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-fade-in" onClick={onClose}>
           <div className="bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
             {/* Header */}
@@ -2738,9 +2908,72 @@
                   </div>
                 </div>
               )}
+
+              {/* === TEMPLATES TAB === */}
+              {tab === 'templates' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-slate-400">{Object.keys(customTemplates || {}).length} template{Object.keys(customTemplates || {}).length !== 1 ? 's' : ''}</p>
+                    <button onClick={() => setEditingTemplate('new')}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg text-xs font-medium transition">
+                      + Novo Template
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3">
+                    {Object.entries(customTemplates || {}).map(([key, tpl]) => (
+                      <div key={key} className="glass rounded-xl p-4 flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: (tpl.color || '#06b6d4') + '30', border: `1px solid ${tpl.color || '#06b6d4'}50` }}>
+                          {tpl.icon || '📋'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{tpl.label}</span>
+                            {tpl.isDefault && <span className="text-[10px] px-1.5 py-0.5 bg-white/10 rounded text-slate-400">padrão</span>}
+                          </div>
+                          <div className="text-xs text-slate-500 mt-0.5">{tpl.tasks?.length || 0} tarefas · {tpl.leadTimeDays} dias de antecedência</div>
+                        </div>
+                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: tpl.color || '#06b6d4' }} />
+                        <div className="flex gap-1 flex-shrink-0">
+                          <button onClick={() => setEditingTemplate(key)}
+                            className="p-1.5 rounded-lg hover:bg-white/10 transition text-slate-400 hover:text-white" title="Editar template">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          {!tpl.isDefault && (
+                            <button onClick={() => showConfirm(`Excluir o template "${tpl.label}"?`, () => {
+                              const updated = { ...customTemplates };
+                              delete updated[key];
+                              onSaveTemplates(updated);
+                              showToast('Template excluído', 'success');
+                            })} className="p-1.5 rounded-lg hover:bg-red-500/20 transition text-slate-400 hover:text-red-400" title="Excluir template">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        {/* Template Editor Modal */}
+        {editingTemplate && (
+          <TemplateEditor
+            templateKey={editingTemplate === 'new' ? null : editingTemplate}
+            template={editingTemplate === 'new' ? null : customTemplates[editingTemplate]}
+            onSave={(key, tplData) => {
+              const isEdit = editingTemplate !== 'new';
+              const updated = { ...customTemplates, [key]: { ...tplData, isDefault: isEdit ? (customTemplates[key]?.isDefault || false) : false } };
+              onSaveTemplates(updated);
+              setEditingTemplate(null);
+              showToast(isEdit ? 'Template atualizado!' : 'Template criado!', 'success');
+            }}
+            onCancel={() => setEditingTemplate(null)}
+          />
+        )}
+        </React.Fragment>
       );
     }
 
@@ -2993,7 +3226,7 @@
       );
     }
 
-    function ProjectSidebar({ projects, selectedProject, onSelectProject, onDeleteProject, showNewProject, onToggleNewProject, onAddProject, onEditProject, projectFilter, setProjectFilter, showConfirm }) {
+    function ProjectSidebar({ projects, selectedProject, onSelectProject, onDeleteProject, showNewProject, onToggleNewProject, onAddProject, onEditProject, projectFilter, setProjectFilter, showConfirm, customTemplates }) {
       const prefetchedRef = useRef(new Set());
       const [showCompleted, setShowCompleted] = useState(false);
       const handleHover = useCallback((projectId) => {
@@ -3142,6 +3375,7 @@
             <NewProjectForm
               onSave={onAddProject}
               onCancel={() => onToggleNewProject(false)}
+              templates={customTemplates}
             />
           )}
         </div>
@@ -3173,11 +3407,12 @@
     }
 
     // New Project Form Component
-    function NewProjectForm({ onSave, onCancel }) {
+    function NewProjectForm({ onSave, onCancel, templates }) {
+      const tpls = templates || PROJECT_TEMPLATES_DEFAULT;
       const [form, setForm] = useState({ name: '', client: '', description: '', color: '#FF6B35', deadline: '', eventType: '', projectSize: 'medio' });
 
       const handleEventTypeSelect = (key) => {
-        const template = PROJECT_TEMPLATES[key];
+        const template = tpls[key];
         setForm(prev => ({
           ...prev,
           eventType: prev.eventType === key ? '' : key,
@@ -3198,7 +3433,7 @@
           <div>
             <label className="block text-xs text-white/50 mb-2">Tipo de Evento</label>
             <div className="grid grid-cols-2 gap-2">
-              {Object.entries(PROJECT_TEMPLATES).map(([key, tpl]) => (
+              {Object.entries(tpls).map(([key, tpl]) => (
                 <button key={key} type="button" onClick={() => handleEventTypeSelect(key)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition border ${
                     form.eventType === key
@@ -3212,7 +3447,7 @@
             </div>
             {form.eventType && (
               <p className="text-xs text-white/40 mt-1.5">
-                {PROJECT_TEMPLATES[form.eventType].tasks.length} tarefas serão criadas automaticamente
+                {(tpls[form.eventType]?.tasks || []).length} tarefas serão criadas automaticamente
               </p>
             )}
           </div>
